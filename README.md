@@ -50,7 +50,9 @@ python -m venv .venv
 .\.venv\Scripts\Activate.ps1
 pip install -r requirements.txt
 python -m pytest
-python experiments\rodar_ideal.py
+python experiments\selecionar.py   # gera data/selecao.csv (precisa do dataset em data/raw)
+python experiments\rodar_ideal.py   # gera results/ideal.csv
+python experiments\consolidar.py    # gera results/resumo_*.csv
 ```
 
 `notebooks/00_conceitos.py` tem exemplos dos conceitos básicos (abre como notebook no VS Code).

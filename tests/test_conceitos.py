@@ -5,7 +5,7 @@ import numpy as np
 from qiskit import QuantumCircuit
 from qiskit.quantum_info import Operator
 
-from trojans import autoteste, entradas, exemplos, insercao, metricas, simulacao
+from trojans import autoteste, circuitos, entradas, exemplos, insercao, metricas, simulacao
 
 
 def test_tvd_valores_conhecidos():
@@ -127,3 +127,13 @@ def test_k95():
 def test_piso_maior_com_menos_shots():
     p = np.full(8, 1 / 8)
     assert metricas.piso(p, shots=100) > metricas.piso(p, shots=10_000)
+
+
+def test_filtro_de_circuitos():
+    assert circuitos.elegivel(exemplos.somador_completo())
+    assert circuitos.reversivel(exemplos.somador_completo())
+    assert not circuitos.reversivel(exemplos.ghz(3))
+    com_medicao = QuantumCircuit(2, 1)
+    com_medicao.measure(0, 0)
+    com_medicao.x(1)
+    assert not circuitos.elegivel(com_medicao)

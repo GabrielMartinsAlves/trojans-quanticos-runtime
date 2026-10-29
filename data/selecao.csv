@@ -1,0 +1,14 @@
+familia,arquivo,caminho,base_circuit_id,origem,n_qubits,profundidade,portas
+reversivel,ham3_102.real,results/datasets/dataset_trojan_final/full/golden/circuit_00415.qasm,415,revlib,3,5,5
+reversivel,decod24-v0_38.real,results/datasets/dataset_trojan_final/full/golden/circuit_00389.qasm,389,revlib,4,6,6
+reversivel,4mod5-v0_18.real,results/datasets/dataset_trojan_final/full/golden/circuit_00340.qasm,340,revlib,5,8,9
+reversivel,rd32_270.real,results/datasets/dataset_trojan_final/full/golden/circuit_00480.qasm,480,revlib,5,7,9
+reversivel,alu-v2_31.real,results/datasets/dataset_trojan_final/full/golden/circuit_00363.qasm,363,revlib,5,13,13
+oraculo,deutsch_n2.qasm,results/datasets/dataset_trojan_final/full/golden/circuit_00250.qasm,250,QASMBench,2,4,5
+oraculo,bv_4.qasm,results/datasets/dataset_trojan_final/full/golden/circuit_00016.qasm,16,other,4,6,12
+oraculo,bv_6.qasm,results/datasets/dataset_trojan_final/full/golden/circuit_00018.qasm,18,other,6,8,18
+oraculo,bv_8.qasm,results/datasets/dataset_trojan_final/full/golden/circuit_00020.qasm,20,other,8,10,24
+oraculo,simon_n6.qasm,results/datasets/dataset_trojan_final/full/golden/circuit_00298.qasm,298,QASMBench,6,27,44
+emaranhamento,bell_n4.qasm,results/datasets/dataset_trojan_final/full/golden/circuit_00246.qasm,246,QASMBench,4,13,33
+emaranhamento,cat_state_n4.qasm,results/datasets/dataset_trojan_final/full/golden/circuit_00248.qasm,248,QASMBench,4,4,4
+emaranhamento,wstate_n3.qasm,results/datasets/dataset_trojan_final/full/golden/circuit_00308.qasm,308,QASMBench,3,22,30
