@@ -53,10 +53,10 @@ python -m pytest
 python experiments\selecionar.py   # gera data/selecao.csv (precisa do dataset em data/raw)
 python experiments\rodar_ideal.py   # gera results/ideal.csv
 python experiments\consolidar.py    # gera results/resumo_*.csv
-python experiments\rodar_ruido.py       # gera results/piso_ruido_1000.csv e results/ruido_1000.csv (FakeTorino, ~3 min)
-python experiments\consolidar_ruido.py  # gera results/resumo_*ruido*_1000.csv
-python experiments\figuras_ruido.py     # gera results/fig_ruido_*_1000.png
-# os três aceitam --shots 4000 (análise de sensibilidade; arquivos com sufixo _4000)
+python experiments\rodar_ruido.py       # gera results/piso_ruido_1024.csv e results/ruido_1024.csv (FakeTorino, ~3 min)
+python experiments\consolidar_ruido.py  # gera results/resumo_*ruido*_1024.csv
+python experiments\figuras_ruido.py     # gera results/fig_ruido_*_1024.png
+# os três aceitam --shots 4096 (análise de sensibilidade; arquivos com sufixo _4096)
 ```
 
 `notebooks/00_conceitos.py` tem exemplos dos conceitos básicos (abre como notebook no VS Code).

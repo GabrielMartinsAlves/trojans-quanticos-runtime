@@ -5,7 +5,7 @@
 - results/fig_ruido_piso_<shots>.png: quanto o ruído afasta o golden da saída ideal, comparado com o
   piso de ruído (golden x golden), em função do número de CZ depois da transpilação.
 
-Uso: python experiments/figuras_ruido.py [--shots 1000]
+Uso: python experiments/figuras_ruido.py [--shots 1024]
 """
 from __future__ import annotations
 
@@ -112,7 +112,7 @@ def fig_piso(pisos: pd.DataFrame, shots: int) -> None:
     plt.close(fig)
 
 
-def main(shots: int = 1000) -> None:
+def main(shots: int = 1024) -> None:
     tab = pd.read_csv(RAIZ / "results" / f"ruido_{shots}.csv")
     pisos = pd.read_csv(RAIZ / "results" / f"piso_ruido_{shots}.csv")
     fig_revela(tab, shots)
@@ -122,5 +122,5 @@ def main(shots: int = 1000) -> None:
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("--shots", type=int, default=1000)
+    parser.add_argument("--shots", type=int, default=1024)
     main(parser.parse_args().shots)
