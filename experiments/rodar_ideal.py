@@ -6,8 +6,8 @@ Para cada circuito golden, porta, posição e papel do qubit:
 - calcula a fração p de estados que revelam o trojan e o k95 do autoteste,
   tanto para entradas da base Z (|j>) quanto da base X (H^n|j>, superposições).
 
-Por enquanto usa os circuitos de exemplo. Quando data/selecao.csv estiver pronto,
-troque `circuitos()` para carregar os QASM selecionados do dataset.
+Usa os circuitos de data/selecao.csv (gerado por experiments/selecionar.py).
+Com a opção --exemplos, usa os circuitos pequenos de src/trojans/exemplos.py.
 """
 from __future__ import annotations
 
@@ -24,24 +24,37 @@ if hasattr(sys.stdout, "reconfigure"):
 RAIZ = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(RAIZ / "src"))
 
-from trojans import autoteste, exemplos, insercao, metricas, simulacao  # noqa: E402
+from trojans import autoteste, circuitos, exemplos, insercao, metricas, simulacao  # noqa: E402
 
 SHOTS = 1000  # medições por execução no autoteste
+SELECAO = RAIZ / "data" / "selecao.csv"
+DATASET = RAIZ / "data" / "raw" / "IC-QT-2026"
 
 
-def circuitos():
-    """(família, golden). Substituir pela seleção do dataset."""
-    return [
-        ("reversivel", exemplos.somador_completo()),
-        ("oraculo", exemplos.bernstein_vazirani("101")),
-        ("oraculo", exemplos.deutsch_jozsa(3, "balanceado")),
-        ("emaranhamento", exemplos.ghz(4)),
-    ]
+def goldens(usar_exemplos: bool = False):
+    """Lista de (família, golden)."""
+    if usar_exemplos:
+        return [
+            ("reversivel", exemplos.somador_completo()),
+            ("oraculo", exemplos.bernstein_vazirani("101")),
+            ("oraculo", exemplos.deutsch_jozsa(3, "balanceado")),
+            ("emaranhamento", exemplos.ghz(4)),
+        ]
+    selecao = pd.read_csv(SELECAO)
+    lista = []
+    for r in selecao.itertuples():
+        circ = circuitos.carregar(DATASET / r.caminho)
+        circ.name = Path(r.arquivo).stem
+        lista.append((r.familia, circ))
+    return lista
 
 
 def main() -> None:
+    usar_exemplos = "--exemplos" in sys.argv
+    saida = RAIZ / "results" / ("ideal_exemplos.csv" if usar_exemplos else "ideal.csv")
     linhas = []
-    for familia, golden in circuitos():
+    for familia, golden in goldens(usar_exemplos):
+        print(f"rodando {familia}/{golden.name} ({golden.num_qubits} qubits)", flush=True)
         for base in simulacao.BASES:
             # Saídas esperadas do golden e piso de ruído de cada entrada.
             P_g = simulacao.distribuicoes_base(golden, base)
@@ -84,7 +97,6 @@ def main() -> None:
                     }
                 )
 
-    saida = RAIZ / "results" / "ideal.csv"
     saida.parent.mkdir(exist_ok=True)
     tabela = pd.DataFrame(linhas)
     tabela.to_csv(saida, index=False)

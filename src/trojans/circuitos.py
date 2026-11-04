@@ -5,6 +5,7 @@ import re
 from pathlib import Path
 
 from qiskit import QuantumCircuit
+from qiskit.circuit import Gate
 
 # Palavras-chave no nome do arquivo para cada família do escopo.
 # Prefira a coluna de família do metadata.csv do trabalho-base quando ela existir;
@@ -38,6 +39,16 @@ def carregar(caminho: str | Path) -> QuantumCircuit:
 
 
 def elegivel(circ: QuantumCircuit, max_qubits: int = 10) -> bool:
-    """True se o circuito cabe no estudo: até `max_qubits` e sem medição ou reset no meio."""
-    operacoes = {inst.operation.name for inst in circ.data}
-    return circ.num_qubits <= max_qubits and not operacoes & {"measure", "reset"}
+    """True se o circuito cabe no estudo: até `max_qubits` e só portas unitárias.
+
+    Ficam de fora medições ou resets no meio do circuito e controle clássico (if/while).
+    """
+    if circ.num_qubits > max_qubits:
+        return False
+    return all(isinstance(inst.operation, Gate) or inst.operation.name == "barrier" for inst in circ.data)
+
+
+def reversivel(circ: QuantumCircuit) -> bool:
+    """True se o circuito só usa X, CNOT, Toffoli e variações (permuta a base computacional)."""
+    portas = {inst.operation.name for inst in circ.data} - {"barrier"}
+    return portas <= {"x", "cx", "ccx", "mcx", "swap", "cswap", "c3x", "c4x"}

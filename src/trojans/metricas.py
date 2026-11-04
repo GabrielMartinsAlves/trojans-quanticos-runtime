@@ -23,6 +23,31 @@ def piso(p_esperado, shots: int, n_rep: int = 500, percentil: float = 95, seed: 
     return float(np.percentile(valores, percentil))
 
 
+def piso_bootstrap(
+    freq,
+    shots: int,
+    n_rep: int = 500,
+    percentil: float = 95,
+    seed: int = 0,
+    referencia=None,
+) -> float:
+    """Piso de ruído no simulador com ruído, por reamostragem (bootstrap).
+
+    `freq` são as frequências do golden medidas no simulador com ruído. Sorteia lotes de
+    `shots` medições dessa distribuição e devolve o percentil da TVD:
+    - sem `referencia`: entre dois lotes independentes do golden (piso da seção VI.D do artigo);
+    - com `referencia`: entre um lote e a distribuição dada (por exemplo, a saída ideal do golden,
+      quando o usuário compara o que mediu com a saída calculada classicamente).
+    """
+    rng = np.random.default_rng(seed)
+    valores = []
+    for _ in range(n_rep):
+        lote = amostrar(freq, shots, rng)
+        outro = amostrar(freq, shots, rng) if referencia is None else referencia
+        valores.append(tvd(lote, outro))
+    return float(np.percentile(valores, percentil))
+
+
 def revela(p_golden, p_infectado, limiar: float) -> bool:
     """True se o trojan muda a saída mais do que o piso de ruído."""
     return tvd(p_golden, p_infectado) > limiar
