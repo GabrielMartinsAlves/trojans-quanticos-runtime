@@ -137,3 +137,19 @@ def test_filtro_de_circuitos():
     com_medicao.measure(0, 0)
     com_medicao.x(1)
     assert not circuitos.elegivel(com_medicao)
+
+
+def test_piso_bootstrap():
+    # Dois lotes do mesmo golden diferem por acaso; o piso cai com mais shots.
+    p = np.full(8, 1 / 8)
+    assert metricas.piso_bootstrap(p, shots=100) > metricas.piso_bootstrap(p, shots=10_000)
+    # Contra uma referência fixa, só um dos lados tem ruído de amostragem: o piso é menor.
+    assert metricas.piso_bootstrap(p, 1000, referencia=p) < metricas.piso_bootstrap(p, 1000)
+
+
+def test_frequencias_do_registrador_de_medicao():
+    # measure_all cria o último registrador, que aparece primeiro na string de contagens.
+    from trojans import ruido
+
+    freq = ruido.frequencias({"10 0": 3, "01 0": 1}, n=2, shots=4)
+    assert np.allclose(freq, [0, 0.25, 0.75, 0])

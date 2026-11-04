@@ -1,0 +1,13 @@
+familia,base,entrada,piso_ideal,piso_ruido,piso_vs_ideal,tvd_ruido_vs_ideal,cz
+emaranhamento,x,mais,0.019,0.034,0.104,0.094,9.333
+emaranhamento,x,zeros,0.022,0.039,0.211,0.2,9.333
+emaranhamento,z,mais,0.02,0.037,0.215,0.204,9.333
+emaranhamento,z,zeros,0.021,0.037,0.222,0.209,9.333
+oraculo,x,mais,0.004,0.036,0.344,0.332,25.2
+oraculo,x,zeros,0.055,0.078,0.079,0.051,25.2
+oraculo,z,mais,0.055,0.077,0.077,0.049,25.2
+oraculo,z,zeros,0.01,0.043,0.305,0.294,25.2
+reversivel,x,mais,0.0,0.042,0.512,0.5,103.8
+reversivel,x,zeros,0.037,0.053,0.051,0.029,103.8
+reversivel,z,mais,0.037,0.053,0.054,0.031,103.8
+reversivel,z,zeros,0.0,0.039,0.487,0.475,103.8
