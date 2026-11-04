@@ -8,7 +8,7 @@ Gera:
 - results/resumo_ruido_variantes_<shots>.csv: por família e porta, fração de variantes reveladas por
   alguma das 4 condições (entrada |0...0> ou |+>^n, base Z ou X), no ideal e com ruído.
 
-Uso: python experiments/consolidar_ruido.py [--shots 1000]
+Uso: python experiments/consolidar_ruido.py [--shots 1024]
 """
 from __future__ import annotations
 
@@ -26,7 +26,7 @@ CHAVE = ["familia", "circuito", "porta", "posicao", "papel"]
 REVELA = ["revela_ideal", "revela_ruido", "revela_vs_ideal"]
 
 
-def main(shots: int = 1000) -> None:
+def main(shots: int = 1024) -> None:
     pisos = pd.read_csv(RAIZ / "results" / f"piso_ruido_{shots}.csv")
     tab = pd.read_csv(RAIZ / "results" / f"ruido_{shots}.csv")
     print(f"{len(tab)} linhas, {tab.groupby(CHAVE).ngroups} variantes em {tab.circuito.nunique()} circuitos\n")
@@ -67,5 +67,5 @@ def main(shots: int = 1000) -> None:
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("--shots", type=int, default=1000)
+    parser.add_argument("--shots", type=int, default=1024)
     main(parser.parse_args().shots)

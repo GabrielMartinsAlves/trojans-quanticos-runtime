@@ -2,8 +2,8 @@
 
 Segue a seção VI.D do artigo, no escopo enxuto (docs/PLANO_SEMANA.md):
 - modelo de ruído de um processador IBM (fake backend do Qiskit);
-- 1.000 shots por execução, como no simulador ideal (seção 6.4); com --shots 4000, o valor do
-  PDF do checkpoint, para a análise de sensibilidade;
+- 1.024 shots por execução (o padrão do Qiskit); com --shots 4096 (o padrão da IBM Runtime),
+  para a análise de sensibilidade;
 - golden e infectado passam pela mesma transpilação mínima (nível 0, qubits fixos em 0..n-1);
 - entradas |0...0> e |+>^n, bases de medição Z e X;
 - piso de ruído: percentil 95 da TVD entre dois lotes independentes do golden com ruído,
@@ -21,7 +21,7 @@ Saídas:
 - results/piso_ruido_<shots>.csv: uma linha por golden, base e entrada (piso de ruído);
 - results/ruido_<shots>.csv: uma linha por variante infectada, base e entrada.
 
-Uso: python experiments/rodar_ruido.py [--shots 1000]
+Uso: python experiments/rodar_ruido.py [--shots 1024]
 """
 from __future__ import annotations
 
@@ -44,7 +44,7 @@ from rodar_ideal import goldens  # noqa: E402
 from trojans import entradas, insercao, metricas, ruido, simulacao  # noqa: E402
 
 BACKEND = "FakeTorino"
-SHOTS = 1000  # padrão: o mesmo do simulador ideal (rodar_ideal.py)
+SHOTS = 1024  # padrão do Qiskit (AerSimulator.run e Samplers locais)
 N_REP = 500  # reamostragens do bootstrap
 SEED = 0
 ENTRADAS = ("zeros", "mais")
