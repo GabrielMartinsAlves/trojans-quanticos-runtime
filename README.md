@@ -57,7 +57,7 @@ python experiments\rodar_ruido.py       # gera results/piso_ruido_1024.csv e res
 python experiments\consolidar_ruido.py  # gera results/resumo_*ruido*_1024.csv
 python experiments\figuras_ruido.py     # gera results/fig_ruido_*_1024.png
 # os três aceitam --shots 4096 (análise de sensibilidade; arquivos com sufixo _4096)
-python experiments	estes_hipoteses.py  # testes das hipóteses H1 a H5c (McNemar, GEE e SHAP)
+python experiments\testes_hipoteses.py  # testes das hipóteses H1 a H5c (McNemar, GEE e SHAP)
 ```
 
 `notebooks/00_conceitos.py` tem exemplos dos conceitos básicos (abre como notebook no VS Code).
