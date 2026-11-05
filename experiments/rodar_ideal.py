@@ -26,7 +26,8 @@ sys.path.insert(0, str(RAIZ / "src"))
 
 from trojans import autoteste, circuitos, exemplos, insercao, metricas, simulacao  # noqa: E402
 
-SHOTS = 1000  # medições por execução no autoteste
+SHOTS = 1024  # medições por execução (padrão do Qiskit, igual ao experimento com ruído)
+TOL = 1e-9  # evita que uma TVD de arredondamento (~1e-16) passe de um piso igual a 0
 SELECAO = RAIZ / "data" / "selecao.csv"
 DATASET = RAIZ / "data" / "raw" / "IC-QT-2026"
 
@@ -58,9 +59,9 @@ def main() -> None:
         for base in simulacao.BASES:
             # Saídas esperadas do golden e piso de ruído de cada entrada.
             P_g = simulacao.distribuicoes_base(golden, base)
-            pisos = np.array([metricas.piso(P_g[:, j], SHOTS) for j in range(P_g.shape[1])])
+            pisos = np.maximum([metricas.piso(P_g[:, j], SHOTS) for j in range(P_g.shape[1])], TOL)
             Q_g = simulacao.distribuicoes_base(golden, base, entrada="x")
-            pisos_x = np.array([metricas.piso(Q_g[:, j], SHOTS) for j in range(Q_g.shape[1])])
+            pisos_x = np.maximum([metricas.piso(Q_g[:, j], SHOTS) for j in range(Q_g.shape[1])], TOL)
             piso_mais = pisos_x[0]  # coluna 0 da base X é |+>^n
 
             for porta, posicao, papel in itertools.product(insercao.PORTAS, insercao.POSICOES, insercao.PAPEIS):
