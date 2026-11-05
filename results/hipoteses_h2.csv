@@ -1,0 +1,4 @@
+familia,n,frac_a,frac_b,so_a,so_b,p,p_holm,esperado,atende
+reversivel,87,1.0,0.0,87,0,1.2924697071141057e-26,3.877409121342317e-26,|+> revela mais,True
+oraculo,81,0.38271604938271603,0.5308641975308642,31,43,0.20067820312938567,0.40135640625877134,|+> não revela mais,True
+emaranhamento,48,0.5,0.625,5,11,0.210113525390625,0.40135640625877134,|+> não revela mais,True

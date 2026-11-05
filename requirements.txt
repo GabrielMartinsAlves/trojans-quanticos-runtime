@@ -8,3 +8,4 @@ scikit-learn
 shap
 pytest
 ipykernel
+statsmodels
