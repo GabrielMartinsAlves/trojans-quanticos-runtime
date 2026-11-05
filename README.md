@@ -41,6 +41,7 @@ tests/            testes (também servem de exemplo dos conceitos)
 data/raw/         dataset do trabalho-base (não versionado; ver README da pasta)
 results/          tabelas e figuras geradas
 docs/             planejamento do grupo
+  ruido/            rascunho da subseção do ambiente com ruído (texto, tabelas e quadros)
 ```
 
 ## Como rodar (Windows / PowerShell)

@@ -1,7 +1,8 @@
 """Figuras do ambiente com ruído, a partir de results/ruido_<shots>.csv e results/piso_ruido_<shots>.csv.
 
 - results/fig_ruido_revela_<shots>.png: fração de variantes reveladas em alguma das 4 condições
-  (entrada |0...0> ou |+>^n, base Z ou X), no simulador ideal e com ruído, por família e porta;
+  (entrada |0...0> ou |+>^n, base Z ou X), no simulador ideal e com ruído, por família e porta,
+  com as contagens (k/n) e o nível de falso alarme esperado com ruído (1 - 0,95^4);
 - results/fig_ruido_piso_<shots>.png: quanto o ruído afasta o golden da saída ideal, comparado com o
   piso de ruído (golden x golden), em função do número de CZ depois da transpilação.
 
@@ -31,6 +32,11 @@ TINTA = "#0b0b0b"
 TINTA_2 = "#52514e"
 GRADE = "#e1e0d9"
 EIXO = "#c3c2b7"
+TINTA_3 = "#898781"  # linha de referência (falso alarme)
+
+# Chance de uma variante silenciosa "aparecer" em alguma das 4 condições, com 5% de falso
+# alarme em cada uma (percentil 95 do piso).
+FALSO_ALARME = 1 - 0.95**4
 
 FAMILIAS = {"reversivel": "Reversíveis", "oraculo": "Oráculos", "emaranhamento": "Emaranhamento"}
 PORTAS = {"x": "X", "h": "H", "z": "Z", "t": "T", "rz_pi16": "RZ(π/16)"}
@@ -48,25 +54,34 @@ def estilo(ax) -> None:
 
 def fig_revela(tab: pd.DataFrame, shots: int) -> None:
     v = tab.groupby(CHAVE)[["revela_ideal", "revela_ruido"]].any().reset_index()
-    frac = v.groupby(["familia", "porta"])[["revela_ideal", "revela_ruido"]].mean()
+    soma = v.groupby(["familia", "porta"])[["revela_ideal", "revela_ruido"]].sum()
     n = v.groupby(["familia", "porta"]).size()
 
-    fig, eixos = plt.subplots(1, 3, figsize=(7.2, 2.5), sharey=True, facecolor=SUPERFICIE)
+    fig, eixos = plt.subplots(1, 3, figsize=(7.2, 2.7), sharey=True, facecolor=SUPERFICIE)
     y = np.arange(len(PORTAS))
     altura = 0.36
     for ax, (fam, nome) in zip(eixos, FAMILIAS.items()):
         estilo(ax)
-        ideal = [frac.loc[(fam, p), "revela_ideal"] for p in PORTAS]
-        ruido = [frac.loc[(fam, p), "revela_ruido"] for p in PORTAS]
+        total = [int(n.loc[(fam, p)]) for p in PORTAS]
+        k_ideal = [int(soma.loc[(fam, p), "revela_ideal"]) for p in PORTAS]
+        k_ruido = [int(soma.loc[(fam, p), "revela_ruido"]) for p in PORTAS]
+        ideal = [k / m for k, m in zip(k_ideal, total)]
+        ruido = [k / m for k, m in zip(k_ruido, total)]
         # 2px de folga entre as barras do par.
-        ax.barh(y - altura / 2, ideal, height=altura, color=SERIE_1, edgecolor=SUPERFICIE, linewidth=1, label="Ideal")
-        ax.barh(y + altura / 2, ruido, height=altura, color=SERIE_2, edgecolor=SUPERFICIE, linewidth=1, label=f"Com ruído ({shots} shots)")
-        # Rótulo só onde o ruído muda o resultado (a história da figura).
-        for k, p in enumerate(PORTAS):
-            if abs(ideal[k] - ruido[k]) >= 0.1:
-                for dy, val in ((-altura / 2, ideal[k]), (altura / 2, ruido[k])):
-                    ax.text(val + 0.02, y[k] + dy, f"{val:.0%}".replace("%", " %"), va="center", fontsize=7, color=TINTA)
-        ax.set_xlim(0, 1.12)
+        ax.barh(y - altura / 2, ideal, height=altura, color=SERIE_1, edgecolor=SUPERFICIE, linewidth=1,
+                label="Ideal (mesmas 4 condições)")
+        ax.barh(y + altura / 2, ruido, height=altura, color=SERIE_2, edgecolor=SUPERFICIE, linewidth=1,
+                label=f"Com ruído ({shots} shots)")
+        # Uma variante silenciosa testada em 4 condições, cada uma com 5% de falso alarme (percentil 95),
+        # "aparece" por acaso em 1 - 0,95^4 das vezes. Barras com ruído perto desta linha são acaso.
+        ax.axvline(FALSO_ALARME, color=TINTA_3, linestyle=(0, (3, 2)), linewidth=1, zorder=2.5,
+                   label=f"Nível de falso alarme com ruído (≈{FALSO_ALARME:.0%})".replace("%", " %"))
+        # Contagens em todas as barras: com n pequeno, uma variante muda vários pontos percentuais.
+        for i in range(len(PORTAS)):
+            for dy, val, k in ((-altura / 2, ideal[i], k_ideal[i]), (altura / 2, ruido[i], k_ruido[i])):
+                ax.text(val + 0.02, y[i] + dy, f"{k}/{total[i]}", va="center", fontsize=6.5, color=TINTA_2, zorder=3,
+                        bbox=dict(facecolor=SUPERFICIE, edgecolor="none", pad=0.4))
+        ax.set_xlim(0, 1.25)
         ax.set_xticks([0, 0.25, 0.5, 0.75, 1])
         ax.set_xticklabels(["0", "25", "50", "75", "100 %"])
         ax.grid(axis="x", color=GRADE, linewidth=0.6)
@@ -77,7 +92,9 @@ def fig_revela(tab: pd.DataFrame, shots: int) -> None:
     fig.text(0.5, 0.01, "Variantes reveladas em alguma das 4 condições (entrada |0…0⟩ ou |+⟩ⁿ, base Z ou X); n = variantes por porta",
              ha="center", fontsize=8, color=TINTA_2)
     alcas, rotulos = eixos[0].get_legend_handles_labels()
-    fig.legend(alcas, rotulos, loc="upper left", bbox_to_anchor=(0.07, 1.0), ncol=2, frameon=False, fontsize=8,
+    ordem = [1, 2, 0]  # barras primeiro, linha de falso alarme por último
+    alcas, rotulos = [alcas[i] for i in ordem], [rotulos[i] for i in ordem]
+    fig.legend(alcas, rotulos, loc="upper left", bbox_to_anchor=(0.07, 1.0), ncol=3, frameon=False, fontsize=8,
                labelcolor=TINTA)
     fig.tight_layout(rect=(0, 0.05, 1, 0.9))
     fig.savefig(RAIZ / "results" / f"fig_ruido_revela_{shots}.png", dpi=300, facecolor=SUPERFICIE)
