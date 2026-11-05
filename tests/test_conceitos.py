@@ -153,3 +153,12 @@ def test_frequencias_do_registrador_de_medicao():
 
     freq = ruido.frequencias({"10 0": 3, "01 0": 1}, n=2, shots=4)
     assert np.allclose(freq, [0, 0.25, 0.75, 0])
+
+
+def test_intervalo_de_wilson():
+    # Valores de referência: 5/10 -> [0,237; 0,763]; 0/10 começa em 0; 10/10 termina em 1.
+    inf, sup = metricas.wilson(5, 10)
+    assert np.isclose(inf, 0.2366, atol=1e-3) and np.isclose(sup, 0.7634, atol=1e-3)
+    assert metricas.wilson(0, 10)[0] == 0 and metricas.wilson(10, 10)[1] == 1
+    # Com mais dados, o intervalo fica mais estreito.
+    assert np.diff(metricas.wilson(50, 100)) < np.diff(metricas.wilson(5, 10))

@@ -6,7 +6,10 @@ Gera:
   no ideal (mesmo número de shots), com ruído (referência: golden com ruído) e com ruído
   comparando com a saída ideal;
 - results/resumo_ruido_variantes_<shots>.csv: por família e porta, fração de variantes reveladas por
-  alguma das 4 condições (entrada |0...0> ou |+>^n, base Z ou X), no ideal e com ruído.
+  alguma das 4 condições (entrada |0...0> ou |+>^n, base Z ou X), no ideal e com ruído, com as
+  contagens (k de n) e o intervalo de confiança de Wilson (95%) de cada fração.
+
+Esta é uma rodada só (réplica 0). Para a variação entre rodadas, ver experiments/replicas_ruido.py.
 
 Uso: python experiments/consolidar_ruido.py [--shots 1024]
 """
@@ -22,6 +25,10 @@ if hasattr(sys.stdout, "reconfigure"):
     sys.stdout.reconfigure(encoding="utf-8")
 
 RAIZ = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(RAIZ / "src"))
+
+from trojans import metricas  # noqa: E402
+
 CHAVE = ["familia", "circuito", "porta", "posicao", "papel"]
 REVELA = ["revela_ideal", "revela_ruido", "revela_vs_ideal"]
 
@@ -57,7 +64,19 @@ def main(shots: int = 1024) -> None:
     var_cols = ["base_trabalho_ideal", "base_trabalho_ruido"] + REVELA
     var = v.groupby(["familia", "porta"])[var_cols].mean().round(2)
     var.loc[("todas", ""), :] = v[var_cols].mean().round(2)
-    print("Fração de variantes reveladas: só |0...0> na base Z | alguma das 4 condições")
+    # Contagens e intervalo de Wilson (95%) para o ideal e para o ruído (alguma das 4 condições).
+    grupos = [((f, p), g) for (f, p), g in v.groupby(["familia", "porta"])] + [(("todas", ""), v)]
+    for (f, p), g in grupos:
+        var.loc[(f, p), "n"] = len(g)
+        for col in ("revela_ideal", "revela_ruido"):
+            k = int(g[col].sum())
+            inf, sup = metricas.wilson(k, len(g))
+            var.loc[(f, p), f"{col}_k"] = k
+            var.loc[(f, p), f"{col}_ic_inf"] = round(inf, 2)
+            var.loc[(f, p), f"{col}_ic_sup"] = round(sup, 2)
+    contagens = ["n", "revela_ideal_k", "revela_ruido_k"]
+    var[contagens] = var[contagens].astype(int)
+    print("Fração de variantes reveladas: só |0...0> na base Z | alguma das 4 condições (com k, n e IC 95%)")
     print(var.to_string())
 
     piso.to_csv(RAIZ / "results" / f"resumo_piso_ruido_{shots}.csv")
