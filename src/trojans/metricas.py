@@ -51,3 +51,17 @@ def piso_bootstrap(
 def revela(p_golden, p_infectado, limiar: float) -> bool:
     """True se o trojan muda a saída mais do que o piso de ruído."""
     return tvd(p_golden, p_infectado) > limiar
+
+
+def wilson(k: int, n: int, z: float = 1.96) -> tuple[float, float]:
+    """Intervalo de confiança de Wilson (95% por padrão) para uma proporção k/n.
+
+    Funciona bem com n pequeno e com proporções perto de 0 ou de 1, onde o intervalo
+    "p ± 1,96·erro padrão" sai do intervalo [0, 1] ou fica estreito demais.
+    """
+    if n == 0:
+        return (0.0, 1.0)
+    p = k / n
+    centro = (p + z * z / (2 * n)) / (1 + z * z / n)
+    meia = z * np.sqrt(p * (1 - p) / n + z * z / (4 * n * n)) / (1 + z * z / n)
+    return (max(0.0, float(centro - meia)), min(1.0, float(centro + meia)))

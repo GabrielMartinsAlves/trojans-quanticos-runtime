@@ -2,7 +2,8 @@
 
 - results/fig_ruido_revela_<shots>.png: fração de variantes reveladas em alguma das 4 condições
   (entrada |0...0> ou |+>^n, base Z ou X), no simulador ideal e com ruído, por família e porta,
-  com as contagens (k/n) e o nível de falso alarme esperado com ruído (1 - 0,95^4);
+  com as contagens (k/n) e o nível de falso alarme com ruído, 1 - (1 - f)^4, com f medido nas
+  réplicas (results/falso_alarme_replicas_<shots>.csv) ou, se não houver réplicas, f = 5%;
 - results/fig_ruido_piso_<shots>.png: quanto o ruído afasta o golden da saída ideal, comparado com o
   piso de ruído (golden x golden), em função do número de CZ depois da transpilação.
 
@@ -34,9 +35,23 @@ GRADE = "#e1e0d9"
 EIXO = "#c3c2b7"
 TINTA_3 = "#898781"  # linha de referência (falso alarme)
 
-# Chance de uma variante silenciosa "aparecer" em alguma das 4 condições, com 5% de falso
-# alarme em cada uma (percentil 95 do piso).
-FALSO_ALARME = 1 - 0.95**4
+# Chance de uma variante silenciosa "aparecer" em alguma das 4 condições: 1 - (1 - f)^4, em que f é
+# a taxa de falso alarme por condição. Valor teórico: f = 5% (percentil 95 do piso).
+FALSO_ALARME_TEORICO = 1 - 0.95**4
+
+
+def nivel_falso_alarme(shots: int) -> tuple[float, str]:
+    """Nível de falso alarme por variante e a origem do número.
+
+    Usa a taxa por condição medida nas réplicas (results/falso_alarme_replicas_<shots>.csv,
+    gerado por replicas_ruido.py) quando existe; senão, o valor teórico.
+    """
+    arquivo = RAIZ / "results" / f"falso_alarme_replicas_{shots}.csv"
+    if arquivo.exists():
+        fa = pd.read_csv(arquivo)
+        f = float(fa[fa.entrada == "todas"].taxa.iloc[0])
+        return 1 - (1 - f) ** 4, "medido nas réplicas"
+    return FALSO_ALARME_TEORICO, "teórico"
 
 FAMILIAS = {"reversivel": "Reversíveis", "oraculo": "Oráculos", "emaranhamento": "Emaranhamento"}
 PORTAS = {"x": "X", "h": "H", "z": "Z", "t": "T", "rz_pi16": "RZ(π/16)"}
@@ -53,6 +68,8 @@ def estilo(ax) -> None:
 
 
 def fig_revela(tab: pd.DataFrame, shots: int) -> None:
+    nivel, origem = nivel_falso_alarme(shots)
+    print(f"nível de falso alarme ({shots} shots): {nivel:.1%} ({origem})")
     v = tab.groupby(CHAVE)[["revela_ideal", "revela_ruido"]].any().reset_index()
     soma = v.groupby(["familia", "porta"])[["revela_ideal", "revela_ruido"]].sum()
     n = v.groupby(["familia", "porta"]).size()
@@ -74,8 +91,8 @@ def fig_revela(tab: pd.DataFrame, shots: int) -> None:
                 label=f"Com ruído ({shots} shots)")
         # Uma variante silenciosa testada em 4 condições, cada uma com 5% de falso alarme (percentil 95),
         # "aparece" por acaso em 1 - 0,95^4 das vezes. Barras com ruído perto desta linha são acaso.
-        ax.axvline(FALSO_ALARME, color=TINTA_3, linestyle=(0, (3, 2)), linewidth=1, zorder=2.5,
-                   label=f"Nível de falso alarme com ruído (≈{FALSO_ALARME:.0%})".replace("%", " %"))
+        ax.axvline(nivel, color=TINTA_3, linestyle=(0, (3, 2)), linewidth=1, zorder=2.5,
+                   label=f"Nível de falso alarme com ruído (≈{nivel:.0%})".replace("%", " %"))
         # Contagens em todas as barras: com n pequeno, uma variante muda vários pontos percentuais.
         for i in range(len(PORTAS)):
             for dy, val, k in ((-altura / 2, ideal[i], k_ideal[i]), (altura / 2, ruido[i], k_ruido[i])):

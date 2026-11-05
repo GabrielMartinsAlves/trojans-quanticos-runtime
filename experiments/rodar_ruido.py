@@ -21,6 +21,9 @@ Saídas:
 - results/piso_ruido_<shots>.csv: uma linha por golden, base e entrada (piso de ruído);
 - results/ruido_<shots>.csv: uma linha por variante infectada, base e entrada.
 
+Esta é a réplica 0. Para repetir com outras sementes, ver experiments/replicas_ruido.py, que usa
+as funções `preparar_golden` e `avaliar` deste arquivo.
+
 Uso: python experiments/rodar_ruido.py [--shots 1024]
 """
 from __future__ import annotations
@@ -58,6 +61,105 @@ def n_cz(transpilado) -> int:
     return int(transpilado.count_ops().get("cz", 0))
 
 
+def semente_simulador(i_circ: int, replica: int = 0) -> int:
+    """Semente do Aer para o lote de um golden. A réplica 0 é a de results/ruido_<shots>.csv.
+
+    O Aer deriva desta semente uma semente diferente para cada circuito do lote; o passo de
+    1.000.000 entre réplicas garante que o mesmo circuito nunca repita a semente.
+    """
+    return SEED + 10_000 * (i_circ + 1) + 1_000_000 * replica
+
+
+def preparar_golden(golden, sim):
+    """Variantes infectadas e circuitos transpilados de um golden (não dependem da semente).
+
+    Devolve (variantes, grupos, transpilados). Um lote por golden: para cada base e entrada,
+    o golden e todas as variantes; `grupos[(base, entrada)] = (índice inicial, circuitos)`,
+    com o golden no índice inicial.
+    """
+    variantes = []
+    for porta, posicao, papel in itertools.product(insercao.PORTAS, insercao.POSICOES, insercao.PAPEIS):
+        resultado = insercao.inserir(golden, porta, posicao, papel)
+        if resultado is not None:
+            variantes.append(resultado)
+
+    grupos = {}
+    circs = []
+    for base, entrada in itertools.product(simulacao.BASES, ENTRADAS):
+        grupo = [entradas.com_entrada(golden, entrada)]
+        grupo += [entradas.com_entrada(infectado, entrada) for infectado, _ in variantes]
+        grupos[(base, entrada)] = (len(circs), grupo)
+        circs += [(base, c) for c in grupo]
+
+    transpilados = [ruido.preparar(c, sim, base, SEED) for base, c in circs]
+    return variantes, grupos, transpilados
+
+
+def avaliar(familia, golden, i_circ, variantes, grupos, transpilados, freqs, shots, replica=0):
+    """Pisos e TVDs de um golden a partir das frequências medidas. Devolve (linhas_piso, linhas).
+
+    O resultado ideal usa sempre as sementes da réplica 0 (não depende da execução com ruído);
+    o bootstrap do piso com ruído muda de semente a cada réplica.
+    """
+    linhas_piso, linhas = [], []
+    for (base, entrada), (ini, grupo) in grupos.items():
+        seed_piso = SEED + 1000 * i_circ + 10 * simulacao.BASES.index(base) + ENTRADAS.index(entrada)
+        seed_boot = seed_piso + 100_000 * replica
+        ideal_g = simulacao.distribuicao(grupo[0], base)
+        ruido_g = freqs[ini]
+        tr_g = transpilados[ini]
+
+        piso_ideal = metricas.piso(ideal_g, shots, n_rep=N_REP, seed=seed_piso)
+        piso_ruido = metricas.piso_bootstrap(ruido_g, shots, n_rep=N_REP, seed=seed_boot)
+        piso_vs_ideal = metricas.piso_bootstrap(ruido_g, shots, n_rep=N_REP, seed=seed_boot, referencia=ideal_g)
+        comum = {
+            "familia": familia,
+            "circuito": golden.name,
+            "n_qubits": golden.num_qubits,
+            "base": base,
+            "entrada": entrada,
+        }
+        linhas_piso.append(
+            {
+                **comum,
+                "backend": BACKEND,
+                "shots": shots,
+                "profundidade": golden.depth(),
+                "profundidade_transpilada": tr_g.depth(),
+                "cz": n_cz(tr_g),
+                "tvd_ruido_vs_ideal": metricas.tvd(ruido_g, ideal_g),
+                "piso_ideal": piso_ideal,
+                "piso_ruido": piso_ruido,
+                "piso_vs_ideal": piso_vs_ideal,
+            }
+        )
+
+        for k, (_, meta) in enumerate(variantes, start=1):
+            ideal_i = simulacao.distribuicao(grupo[k], base)
+            ruido_i = freqs[ini + k]
+            tvd_ideal = metricas.tvd(ideal_g, ideal_i)
+            tvd_ruido = metricas.tvd(ruido_g, ruido_i)
+            tvd_vs_ideal = metricas.tvd(ruido_i, ideal_g)
+            linhas.append(
+                {
+                    **comum,
+                    **meta,
+                    "tvd_ideal": tvd_ideal,
+                    "piso_ideal": piso_ideal,
+                    "revela_ideal": bool(tvd_ideal > max(piso_ideal, TOL)),
+                    "tvd_ruido": tvd_ruido,
+                    "piso_ruido": piso_ruido,
+                    "revela_ruido": bool(tvd_ruido > max(piso_ruido, TOL)),
+                    "tvd_vs_ideal": tvd_vs_ideal,
+                    "piso_vs_ideal": piso_vs_ideal,
+                    "revela_vs_ideal": bool(tvd_vs_ideal > max(piso_vs_ideal, TOL)),
+                    "cz_golden": n_cz(tr_g),
+                    "cz_infectado": n_cz(transpilados[ini + k]),
+                }
+            )
+    return linhas_piso, linhas
+
+
 def main(shots: int = SHOTS) -> None:
     inicio = time.time()
     sim = ruido.simulador(BACKEND)
@@ -65,85 +167,14 @@ def main(shots: int = SHOTS) -> None:
 
     for i_circ, (familia, golden) in enumerate(goldens()):
         t0 = time.time()
-        variantes = []
-        for porta, posicao, papel in itertools.product(insercao.PORTAS, insercao.POSICOES, insercao.PAPEIS):
-            resultado = insercao.inserir(golden, porta, posicao, papel)
-            if resultado is not None:
-                variantes.append(resultado)
-
-        # Um lote por golden: para cada base e entrada, o golden e todas as variantes.
-        # Índice 0 de cada grupo é o golden.
-        grupos = {}
-        circs = []
-        for base, entrada in itertools.product(simulacao.BASES, ENTRADAS):
-            grupo = [entradas.com_entrada(golden, entrada)]
-            grupo += [entradas.com_entrada(infectado, entrada) for infectado, _ in variantes]
-            grupos[(base, entrada)] = (len(circs), grupo)
-            circs += [(base, c) for c in grupo]
-
-        transpilados = [ruido.preparar(c, sim, base, SEED) for base, c in circs]
-        freqs = ruido.rodar(transpilados, sim, shots, seed=SEED + 10_000 * (i_circ + 1))
-
-        for (base, entrada), (ini, grupo) in grupos.items():
-            seed_piso = SEED + 1000 * i_circ + 10 * simulacao.BASES.index(base) + ENTRADAS.index(entrada)
-            ideal_g = simulacao.distribuicao(grupo[0], base)
-            ruido_g = freqs[ini]
-            tr_g = transpilados[ini]
-
-            piso_ideal = metricas.piso(ideal_g, shots, n_rep=N_REP, seed=seed_piso)
-            piso_ruido = metricas.piso_bootstrap(ruido_g, shots, n_rep=N_REP, seed=seed_piso)
-            piso_vs_ideal = metricas.piso_bootstrap(
-                ruido_g, shots, n_rep=N_REP, seed=seed_piso, referencia=ideal_g
-            )
-            comum = {
-                "familia": familia,
-                "circuito": golden.name,
-                "n_qubits": golden.num_qubits,
-                "base": base,
-                "entrada": entrada,
-            }
-            linhas_piso.append(
-                {
-                    **comum,
-                    "backend": BACKEND,
-                    "shots": shots,
-                    "profundidade": golden.depth(),
-                    "profundidade_transpilada": tr_g.depth(),
-                    "cz": n_cz(tr_g),
-                    "tvd_ruido_vs_ideal": metricas.tvd(ruido_g, ideal_g),
-                    "piso_ideal": piso_ideal,
-                    "piso_ruido": piso_ruido,
-                    "piso_vs_ideal": piso_vs_ideal,
-                }
-            )
-
-            for k, (_, meta) in enumerate(variantes, start=1):
-                ideal_i = simulacao.distribuicao(grupo[k], base)
-                ruido_i = freqs[ini + k]
-                tvd_ideal = metricas.tvd(ideal_g, ideal_i)
-                tvd_ruido = metricas.tvd(ruido_g, ruido_i)
-                tvd_vs_ideal = metricas.tvd(ruido_i, ideal_g)
-                linhas.append(
-                    {
-                        **comum,
-                        **meta,
-                        "tvd_ideal": tvd_ideal,
-                        "piso_ideal": piso_ideal,
-                        "revela_ideal": bool(tvd_ideal > max(piso_ideal, TOL)),
-                        "tvd_ruido": tvd_ruido,
-                        "piso_ruido": piso_ruido,
-                        "revela_ruido": bool(tvd_ruido > max(piso_ruido, TOL)),
-                        "tvd_vs_ideal": tvd_vs_ideal,
-                        "piso_vs_ideal": piso_vs_ideal,
-                        "revela_vs_ideal": bool(tvd_vs_ideal > max(piso_vs_ideal, TOL)),
-                        "cz_golden": n_cz(tr_g),
-                        "cz_infectado": n_cz(transpilados[ini + k]),
-                    }
-                )
-
+        variantes, grupos, transpilados = preparar_golden(golden, sim)
+        freqs = ruido.rodar(transpilados, sim, shots, seed=semente_simulador(i_circ))
+        lp, li = avaliar(familia, golden, i_circ, variantes, grupos, transpilados, freqs, shots)
+        linhas_piso += lp
+        linhas += li
         print(
             f"{familia}/{golden.name}: {golden.num_qubits} qubits, {len(variantes)} variantes, "
-            f"{len(circs)} execuções em {time.time() - t0:.0f}s",
+            f"{len(transpilados)} execuções em {time.time() - t0:.0f}s",
             flush=True,
         )
 
