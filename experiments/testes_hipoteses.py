@@ -18,6 +18,7 @@ Critérios (iguais aos do texto):
 """
 from __future__ import annotations
 
+import re
 import sys
 import warnings
 from pathlib import Path
@@ -148,16 +149,19 @@ def h4(cond: pd.DataFrame) -> tuple[dict, pd.DataFrame]:
 
     # Regressão logística marginal (GEE) com o circuito como grupo.
     gee = smf.gee(
-        "visivel ~ C(porta) + C(posicao) + C(papel) + C(entrada) + C(base) + C(familia)",
+        FORMULA,
         groups="circuito",
         data=cond.assign(visivel=cond.visivel.astype(int)),
         family=sm.families.Binomial(),
         cov_struct=sm.cov_struct.Exchangeable(),
     ).fit()
+    salvar_regressao(gee)
     testes = gee.wald_test_terms(scalar=True)
     tabela = testes.table
-    p_pos = float(tabela.loc["C(posicao)", "pvalue"])
-    p_pap = float(tabela.loc["C(papel)", "pvalue"])
+    tabela.to_csv(RES / "hipoteses_regressao_wald.csv")
+    termo = lambda f: next(i for i in tabela.index if i.startswith(f"C({f}"))  # noqa: E731
+    p_pos = float(tabela.loc[termo("posicao"), "pvalue"])
+    p_pap = float(tabela.loc[termo("papel"), "pvalue"])
     p_holm = multipletests([p_pos, p_pap], method="holm")[1]
     share = imp_b.get("posicao", 0) + imp_b.get("papel", 0)
     resumo = {
@@ -170,6 +174,55 @@ def h4(cond: pd.DataFrame) -> tuple[dict, pd.DataFrame]:
         "atende": (share >= 0.10) and (min(p_holm) < ALFA),
     }
     return resumo, shap_tab
+
+
+# Categorias de referência da regressão (as comparações que o artigo discute).
+REFERENCIA = {"porta": "x", "posicao": "meio", "papel": "ativo", "entrada": "zeros", "base": "z", "familia": "reversivel"}
+FORMULA = "visivel ~ " + " + ".join(f"C({f}, Treatment('{n}'))" for f, n in REFERENCIA.items())
+
+ROTULOS = {
+    "porta": ("Porta", {"h": "H", "t": "T", "x": "X", "z": "Z", "rz_pi16": "RZ(π/16)"}),
+    "posicao": ("Posição", {"inicio": "início", "meio": "meio", "fim": "fim"}),
+    "papel": ("Papel", {"ativo": "ativo", "ocioso": "ocioso"}),
+    "entrada": ("Entrada", {"zeros": "|0…0⟩", "mais": "|+⟩ⁿ", "base_z": "estados da base Z", "base_x": "estados da base X"}),
+    "base": ("Base", {"z": "Z", "x": "X"}),
+    "familia": ("Família", {"reversivel": "reversíveis", "oraculo": "oráculos", "emaranhamento": "emaranhamento"}),
+}
+
+
+def salvar_regressao(gee) -> None:
+    """Tabela de razões de chances (IC 95%) e gráfico de floresta da regressão logística."""
+    ic = gee.conf_int()
+    tab = pd.DataFrame({
+        "coef": gee.params, "erro_padrao": gee.bse, "p": gee.pvalues,
+        "OR": np.exp(gee.params), "OR_ic_inf": np.exp(ic[0]), "OR_ic_sup": np.exp(ic[1]),
+    })
+    tab.to_csv(RES / "hipoteses_regressao.csv")
+
+    linhas = []
+    for termo, r in tab.drop(index="Intercept").iterrows():
+        if pd.isna(r.erro_padrao):
+            continue  # nível sem variação própria (ex.: estados da base Z se comportam como |0...0>)
+        m = re.match(r"C\((\w+).*\)\[T\.(.+)\]", termo)
+        nome, niveis = ROTULOS[m.group(1)]
+        linhas.append((nome, niveis.get(m.group(2), m.group(2)), r))
+    referencias = {ROTULOS[f][0]: ROTULOS[f][1][nivel] for f, nivel in REFERENCIA.items()}
+
+    fig, ax = plt.subplots(figsize=(6.8, 6.0))
+    y = np.arange(len(linhas))[::-1]
+    for yi, (nome, nivel, r) in zip(y, linhas):
+        cor = "#2a6fdb" if r.p < ALFA else "#9aa5b1"
+        ax.plot([r.OR_ic_inf, r.OR_ic_sup], [yi, yi], color=cor, lw=1.6)
+        ax.plot(r.OR, yi, "o", color=cor, ms=5)
+    ax.axvline(1, color="#555", lw=0.8, ls="--")
+    ax.set_xscale("log")
+    ax.set_yticks(y, [f"{nome}: {nivel}" for nome, nivel, _ in linhas], fontsize=8)
+    ax.set_xlabel("Razão de chances de ser visível (IC 95%, escala log)")
+    ref = "; ".join(f"{k}: {v}" for k, v in referencias.items())
+    ax.set_title(f"Referência — {ref}", fontsize=7, loc="left")
+    ax.spines[["top", "right"]].set_visible(False)
+    fig.tight_layout()
+    fig.savefig(RES / "fig_regressao_logistica.png", dpi=200)
 
 
 def h5ab(v: pd.DataFrame) -> tuple[dict, pd.DataFrame]:
