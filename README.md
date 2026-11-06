@@ -1,8 +1,8 @@
 # Trojans quânticos em tempo de execução
 
-Código e dados do artigo **"Observabilidade de trojans quânticos em tempo de execução: efeito do
-estado de entrada e da inserção em diferentes famílias de circuitos"**, da eletiva de Computação
-Quântica do Inteli (2026-2B).
+Código e dados do artigo **"Detectabilidade de trojans quânticos em tempo de execução: efeito da
+entrada, da base de medição e do ponto de inserção em diferentes famílias de circuitos"**, da eletiva
+de Computação Quântica do Inteli (2026-2B).
 
 **Pergunta:** quando um trojan (porta extra inserida na compilação) aparece na saída de um
 circuito, e quantos testes um usuário precisa para encontrá-lo?
@@ -14,7 +14,7 @@ dos trojans só com a entrada |0...0> e só na base Z.
 
 | Fator | Valores |
 |---|---|
-| Famílias | reversíveis/aritméticos, oráculos (Bernstein-Vazirani, Deutsch-Jozsa), emaranhamento (GHZ) |
+| Famílias | reversíveis/aritméticos, oráculos (Deutsch, Bernstein-Vazirani, Simon), emaranhamento (GHZ, Bell, W) |
 | Porta inserida | X, H, Z, T, RZ(π/16) |
 | Posição | início (10%), meio (50%), fim (90%) da profundidade |
 | Papel do qubit | ativo ou ocioso na camada de inserção |
