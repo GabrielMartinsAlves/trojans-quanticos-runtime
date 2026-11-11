@@ -1,0 +1,16 @@
+familia,porta,count,median,max
+emaranhamento,h,16,1.0,1.0
+emaranhamento,rz_pi16,3,1.0,1.0
+emaranhamento,t,16,1.0,1.0
+emaranhamento,x,16,1.0,1.0
+emaranhamento,z,16,1.0,1.0
+oraculo,h,27,1.0,1.0
+oraculo,rz_pi16,22,1.0,1.0
+oraculo,t,26,1.0,1.0
+oraculo,x,25,1.0,1.0
+oraculo,z,26,1.0,1.0
+reversivel,h,29,1.0,1.0
+reversivel,rz_pi16,29,5.0,23.0
+reversivel,t,29,1.0,5.0
+reversivel,x,29,1.0,1.0
+reversivel,z,29,1.0,5.0

@@ -1,0 +1,14 @@
+{
+  "title": "Trojans quânticos em tempo de execução: código e dados",
+  "upload_type": "software",
+  "description": "Código, resultados e figuras do artigo sobre a detectabilidade de trojans quânticos em tempo de execução, da eletiva de Computação Quântica do Inteli (2026-2B).",
+  "creators": [
+    {"name": "Alves, Gabriel Henrique Martins", "affiliation": "Instituto de Tecnologia e Liderança (Inteli)"},
+    {"name": "Colombini, Gustavo", "affiliation": "Instituto de Tecnologia e Liderança (Inteli)"},
+    {"name": "Fabiani, Bruno", "affiliation": "Instituto de Tecnologia e Liderança (Inteli)"},
+    {"name": "de Oliveira, João Victor Wandermurem", "affiliation": "Instituto de Tecnologia e Liderança (Inteli)"}
+  ],
+  "license": "MIT",
+  "keywords": ["computação quântica", "trojans quânticos", "segurança de compiladores", "Qiskit"],
+  "language": "por"
+}

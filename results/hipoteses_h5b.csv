@@ -1,0 +1,5 @@
+familia,mediana_k95_rz,mediana_k95_outras,frac_rz_invisivel,p_mannwhitney,atende
+reversivel,5.0,1.0,0.0,7.852469007200278e-27,True
+oraculo,1.0,1.0,0.18518518518518517,0.003037974720830364,False
+emaranhamento,inf,1.0,0.8125,2.6228073701350126e-15,True
+todas,5.0,1.0,0.25,6.384553751112518e-37,True

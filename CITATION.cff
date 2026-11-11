@@ -1,0 +1,22 @@
+cff-version: 1.2.0
+message: "Se usar este código ou estes dados, cite-os com os metadados abaixo."
+title: "Trojans quânticos em tempo de execução: código e dados"
+type: software
+authors:
+  - family-names: Alves
+    given-names: Gabriel Henrique Martins
+  - family-names: Colombini
+    given-names: Gustavo
+  - family-names: Fabiani
+    given-names: Bruno
+  - family-names: de Oliveira
+    given-names: João Victor Wandermurem
+repository-code: "https://github.com/GabrielMartinsAlves/trojans-quanticos-runtime"
+license: MIT
+version: "1.0.0"
+date-released: "2026-11-11"
+keywords:
+  - computação quântica
+  - trojans quânticos
+  - segurança de compiladores
+  - Qiskit

@@ -1,0 +1,14 @@
+# Python
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+.ipynb_checkpoints/
+
+# Dataset do trabalho-base: não redistribuir (o repositório original não tem licença).
+data/raw/*
+!data/raw/README.md
+
+# Sistema
+.DS_Store
+Thumbs.db
