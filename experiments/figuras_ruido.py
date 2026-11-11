@@ -12,22 +12,39 @@ Uso: python experiments/figuras_ruido.py [--shots 1024]
 from __future__ import annotations
 
 import argparse
+from pathlib import Path
 
 import matplotlib
 import matplotlib.ticker
+from matplotlib.lines import Line2D
 
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt  # noqa: E402
 import numpy as np  # noqa: E402
 import pandas as pd  # noqa: E402
-from comum import CHAVE, RESULTADOS  # noqa: E402
 
-SERIE_1 = "#2a78d6"  # ideal / distorção
-SERIE_2 = "#eb6834"  # com ruído / piso
+RAIZ = Path(__file__).resolve().parents[1]
+CHAVE = ["familia", "circuito", "porta", "posicao", "papel"]
+
+plt.rcParams.update({
+    "text.usetex": False,
+    "font.family": "serif",
+    "font.serif": ["STIXGeneral"],
+    "font.size": 10,
+    "axes.labelsize": 10,
+    "legend.fontsize": 10,
+    "xtick.labelsize": 10,
+    "ytick.labelsize": 10,
+})
+
+# Paleta (validada para daltonismo) e tinta do gráfico.
+SERIE_1 = "#0d56af"  # ideal / distorção
+SERIE_2 = "#cc7400"  # com ruído / piso
 SUPERFICIE = "#fcfcfb"
-TINTA = "#0b0b0b"
-TINTA_2 = "#52514e"
+TINTA = "#000000"
+TINTA_2 = "#000000"
 GRADE = "#e1e0d9"
+RUIDO = "#0d56af"
 EIXO = "#c3c2b7"
 TINTA_3 = "#898781"  # linha de referência (falso alarme)
 
@@ -42,13 +59,12 @@ def nivel_falso_alarme(shots: int) -> tuple[float, str]:
     Usa a taxa por condição medida nas réplicas (results/falso_alarme_replicas_<shots>.csv,
     gerado por replicas_ruido.py) quando existe; senão, o valor teórico.
     """
-    arquivo = RESULTADOS / f"falso_alarme_replicas_{shots}.csv"
+    arquivo = RAIZ / "results" / f"falso_alarme_replicas_{shots}.csv"
     if arquivo.exists():
         fa = pd.read_csv(arquivo)
         f = float(fa[fa.entrada == "todas"].taxa.iloc[0])
         return 1 - (1 - f) ** 4, "medido nas réplicas"
     return FALSO_ALARME_TEORICO, "teórico"
-
 
 FAMILIAS = {"reversivel": "Reversíveis", "oraculo": "Oráculos", "emaranhamento": "Emaranhamento"}
 PORTAS = {"x": "X", "h": "H", "z": "Z", "t": "T", "rz_pi16": "RZ(π/16)"}
@@ -56,11 +72,11 @@ PORTAS = {"x": "X", "h": "H", "z": "Z", "t": "T", "rz_pi16": "RZ(π/16)"}
 
 def estilo(ax) -> None:
     ax.set_facecolor(SUPERFICIE)
-    for lado in ("top", "right"):
-        ax.spines[lado].set_visible(False)
-    for lado in ("left", "bottom"):
-        ax.spines[lado].set_color(EIXO)
-    ax.tick_params(colors=TINTA_2, labelsize=8, length=0)
+    #ax.tick_params(colors=TINTA_2, labelsize=8, length=0)
+    for spine in ax.spines.values():
+        spine.set_color(TINTA)
+        #spine.set_linewidth(0.2)
+        spine.set_visible(True)
     ax.set_axisbelow(True)
 
 
@@ -81,12 +97,16 @@ def fig_revela(tab: pd.DataFrame, shots: int) -> None:
         k_ruido = [int(soma.loc[(fam, p), "revela_ruido"]) for p in PORTAS]
         ideal = [k / m for k, m in zip(k_ideal, total)]
         ruido = [k / m for k, m in zip(k_ruido, total)]
+        # 2px de folga entre as barras do par.
         ax.barh(y - altura / 2, ideal, height=altura, color=SERIE_1, edgecolor=SUPERFICIE, linewidth=1,
                 label="Ideal (mesmas 4 condições)")
         ax.barh(y + altura / 2, ruido, height=altura, color=SERIE_2, edgecolor=SUPERFICIE, linewidth=1,
                 label=f"Com ruído ({shots} shots)")
+        # Uma variante silenciosa testada em 4 condições, cada uma com 5% de falso alarme (percentil 95),
+        # "aparece" por acaso em 1 - 0,95^4 das vezes. Barras com ruído perto desta linha são acaso.
         ax.axvline(nivel, color=TINTA_3, linestyle=(0, (3, 2)), linewidth=1, zorder=2.5,
                    label=f"Nível de falso alarme com ruído (≈{nivel:.0%})".replace("%", " %"))
+        # Contagens em todas as barras: com n pequeno, uma variante muda vários pontos percentuais.
         for i in range(len(PORTAS)):
             for dy, val, k in ((-altura / 2, ideal[i], k_ideal[i]), (altura / 2, ruido[i], k_ruido[i])):
                 ax.text(val + 0.02, y[i] + dy, f"{k}/{total[i]}", va="center", fontsize=6.5, color=TINTA_2, zorder=3,
@@ -107,7 +127,7 @@ def fig_revela(tab: pd.DataFrame, shots: int) -> None:
     fig.legend(alcas, rotulos, loc="upper left", bbox_to_anchor=(0.07, 1.0), ncol=3, frameon=False, fontsize=8,
                labelcolor=TINTA)
     fig.tight_layout(rect=(0, 0.05, 1, 0.9))
-    fig.savefig(RESULTADOS / f"fig_ruido_revela_{shots}.png", dpi=300, facecolor=SUPERFICIE)
+    fig.savefig(RAIZ / "results" / f"fig_ruido_revela_{shots}.svg", dpi=300, facecolor=SUPERFICIE)
     plt.close(fig)
 
 
@@ -116,36 +136,169 @@ def fig_piso(pisos: pd.DataFrame, shots: int) -> None:
         cz=("cz", "first"), distorcao=("tvd_ruido_vs_ideal", "mean"), piso=("piso_ruido", "mean")
     ).reset_index()
 
-    fig, ax = plt.subplots(figsize=(3.5, 2.6), facecolor=SUPERFICIE)
+    fig, ax = plt.subplots(figsize=(4, 3.0), facecolor=SUPERFICIE)
     estilo(ax)
+    
     ax.set_xscale("log")
-    ax.xaxis.set_major_formatter(matplotlib.ticker.FuncFormatter(lambda v, _: f"{v:g}"))
-    for _, r in c.iterrows():
-        ax.plot([r.cz, r.cz], [r.piso, r.distorcao], color=GRADE, linewidth=1, zorder=1)
-    ax.scatter(c.cz, c.distorcao, s=36, color=SERIE_1, edgecolor=SUPERFICIE, linewidth=1.5, zorder=3,
-               label="Golden com ruído × ideal")
-    ax.scatter(c.cz, c.piso, s=36, color=SERIE_2, edgecolor=SUPERFICIE, linewidth=1.5, zorder=3,
+    #ax.xaxis.set_major_formatter(matplotlib.ticker.FuncFormatter(lambda v, _: f"{v:g}"))
+    for i, r in c.iterrows():
+        ax.plot([r.cz, r.cz], [r.piso, r.distorcao], color=RUIDO, linewidth=0.8, zorder=1, linestyle='dotted')
+    ax.scatter(c.cz, c.piso, marker='D', s=12, color=SERIE_2, edgecolor=SUPERFICIE, linewidth=0.5, zorder=3,
                label=f"Piso: golden × golden (p95, {shots} shots)")
+    ax.scatter(c.cz, c.distorcao, s=20, color=SERIE_1, edgecolor=SUPERFICIE, linewidth=0.5, zorder=3,
+               label="Golden com ruído × ideal")
+    
     for nome in ("alu-v2_31", "bv_8", "deutsch_n2"):
         r = c[c.circuito == nome].iloc[0]
-        ax.annotate(nome, (r.cz, r.distorcao), xytext=(4, 4), textcoords="offset points", fontsize=7, color=TINTA_2)
+
+        direita = r.cz > np.sqrt(ax.get_xlim()[0] * ax.get_xlim()[1])
+        acima = r.distorcao > 0.85 * ax.get_ylim()[1]
+
+        ax.annotate(
+            nome,
+            (r.cz, r.distorcao),
+            xytext=(
+                -2 if direita else 2,
+                -4 if acima else 4
+            ),
+            textcoords="offset points",
+            ha="right" if direita else "left",
+            va="top" if acima else "bottom",
+            fontsize=7,
+            color=TINTA_2,
+        )
+        
     ax.set_xlabel("Portas CZ depois da transpilação", fontsize=8, color=TINTA_2)
     ax.set_ylabel("TVD (média das 4 condições)", fontsize=8, color=TINTA_2)
     ax.set_ylim(0, None)
-    ax.grid(axis="y", color=GRADE, linewidth=0.6)
-    ax.legend(frameon=False, fontsize=7, labelcolor=TINTA, loc="upper left")
-    fig.tight_layout()
-    fig.savefig(RESULTADOS / f"fig_ruido_piso_{shots}.png", dpi=300, facecolor=SUPERFICIE)
+    ax.set_yticks([t for t in ax.get_yticks() if not np.isclose(t, 0) and t <= ax.get_ylim()[1]])
+        
+    ax.legend(
+        frameon=False,
+        fontsize=7,
+        labelcolor=TINTA,
+        loc="upper center",
+        bbox_to_anchor=(0.5, 1.15),
+        ncol=2,
+        columnspacing=2.0,
+        handletextpad=0.1,
+    )
+    
+
+    fig.subplots_adjust(
+        left=0.16,
+        right=0.97,
+        bottom=0.17,
+        top=0.78,
+    )
+
+    fig.savefig(
+        RAIZ / "results" / f"fig_ruido_piso_{shots}.svg",
+        dpi=300,
+        facecolor=SUPERFICIE,
+        bbox_inches="tight",
+        pad_inches=0.03,
+    )
+    plt.close(fig)
+
+
+def fig_piso_dispersao(pisos: pd.DataFrame, shots: int) -> None:
+    c = pisos.groupby(["familia", "circuito"]).agg(
+        cz=("cz", "first"),
+        distorcao=("tvd_ruido_vs_ideal", "mean"),
+        piso=("piso_ruido", "mean")
+    ).reset_index()
+
+    fig, ax = plt.subplots(figsize=(5, 4.0), facecolor=SUPERFICIE)
+    estilo(ax)
+
+    # Limites iguais nos dois eixos para preservar a diagonal y = x
+    limite = max(c["piso"].max(), c["distorcao"].max()) * 1.08
+    limite = max(limite, 0.01)
+
+    ax.set_xlim(0, limite)
+    ax.set_ylim(0, limite)
+
+    # Linha de referência: distorção = piso de ruído
+    ax.plot(
+        [0, limite], [0, limite],
+        color=RUIDO,
+        linewidth=0.9,
+        linestyle="dotted",
+        zorder=1,
+        label="Distorção = piso"
+    )
+
+    # Dispersão
+    ax.scatter(
+        c.piso,
+        c.distorcao,
+        s=20,
+        color=SERIE_1,
+        edgecolor=SUPERFICIE,
+        linewidth=0.5,
+        zorder=3,
+        label="Circuitos"
+    )
+
+    # Identificação de circuitos selecionados
+    for nome in ("alu-v2_31", "bv_8", "deutsch_n2"):
+        selecionado = c[c.circuito == nome]
+
+        if selecionado.empty:
+            continue
+
+        r = selecionado.iloc[0]
+
+        ax.annotate(
+            nome,
+            (r.piso, r.distorcao),
+            xytext=(4, 4),
+            textcoords="offset points",
+            fontsize=7,
+            color=TINTA_2,
+        )
+
+    # Rótulos dos eixos
+    ax.set_xlabel("Piso de ruído (TVD)", fontsize=8, color=TINTA_2)
+    ax.set_ylabel("Distorção em relação ao ideal (TVD)", fontsize=8, color=TINTA_2)
+
+    # Remove o zero dos ticks, mantendo a origem
+    ax.set_xticks([t for t in ax.get_xticks() if not np.isclose(t, 0)])
+    ax.set_yticks([t for t in ax.get_yticks() if not np.isclose(t, 0)])
+    
+    ax.legend(
+        frameon=False,
+        fontsize=7,
+        labelcolor=TINTA,
+        loc="upper left",
+        bbox_to_anchor=(0, 1.15),
+    )
+
+    fig.subplots_adjust(
+        left=0.16,
+        right=0.97,
+        bottom=0.17,
+        top=0.78,
+    )
+
+    fig.savefig(
+        RAIZ / "results" / f"fig_ruido_dispersao_{shots}.svg",
+        dpi=300,
+        facecolor=SUPERFICIE,
+        bbox_inches="tight",
+        pad_inches=0.03,
+    )
     plt.close(fig)
 
 
 def main(shots: int = 1024) -> None:
-    tab = pd.read_csv(RESULTADOS / f"ruido_{shots}.csv")
-    pisos = pd.read_csv(RESULTADOS / f"piso_ruido_{shots}.csv")
+    tab = pd.read_csv(RAIZ / "results" / f"ruido_{shots}.csv")
+    pisos = pd.read_csv(RAIZ / "results" / f"piso_ruido_{shots}.csv")
     fig_revela(tab, shots)
     fig_piso(pisos, shots)
-    print(f"results/fig_ruido_revela_{shots}.png e results/fig_ruido_piso_{shots}.png")
-
+    fig_piso_dispersao(pisos, shots)
+    
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
