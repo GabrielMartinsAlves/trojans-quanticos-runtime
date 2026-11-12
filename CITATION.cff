@@ -13,6 +13,7 @@ authors:
     given-names: João Victor Wandermurem
 repository-code: "https://github.com/GabrielMartinsAlves/trojans-quanticos-runtime"
 license: MIT
+doi: "10.5281/zenodo.24148965"
 version: "1.0.0"
 date-released: "2026-11-11"
 keywords:

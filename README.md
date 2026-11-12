@@ -1,7 +1,9 @@
 # Trojans quânticos em tempo de execução
 
-Código e dados do artigo **"Detectabilidade de trojans quânticos em tempo de execução: efeito da
-entrada, da base de medição e do ponto de inserção em diferentes famílias de circuitos"**, da eletiva
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.24148965.svg)](https://doi.org/10.5281/zenodo.24148965)
+
+Código e dados do artigo **"Detectabilidade de trojans quânticos em tempo de execução em diferentes
+famílias de circuitos"**, da eletiva
 de Computação Quântica do Inteli (2026-2B).
 
 **Pergunta:** quando um trojan (porta extra inserida na compilação) aparece na saída de um
@@ -77,5 +79,5 @@ DOI: 10.5753/sbseg_estendido.2026.29446.
 O código e os resultados estão sob a [licença MIT](LICENSE). O dataset do trabalho-base não faz
 parte deste repositório (ver `data/raw/README.md`).
 
-Para citar, use os metadados de [CITATION.cff](CITATION.cff). O DOI do arquivamento no Zenodo é
-gerado a cada release.
+Para citar, use os metadados de [CITATION.cff](CITATION.cff). A versão 1.0.0, usada no artigo, está
+arquivada no Zenodo com o DOI [10.5281/zenodo.24148965](https://doi.org/10.5281/zenodo.24148965).
