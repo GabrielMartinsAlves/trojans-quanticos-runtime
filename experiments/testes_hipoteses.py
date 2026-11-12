@@ -1,30 +1,26 @@
-"""Testes estatísticos das hipóteses H1 a H5c.
+"""Testes estatísticos das hipóteses H1 a H4c e da verificação de consistência.
 
 Entradas: results/ideal.csv (simulador ideal, 1.024 shots) e results/ruido_1024.csv (FakeTorino).
-Saídas: results/hipoteses_resumo.csv, results/hipoteses_shap.csv e results/fig_shap_importancia.png.
+Saídas: results/hipoteses_*.csv (resumo, H1, H2, H4b, importância SHAP e regressão logística).
 
 Critérios (iguais aos do texto):
 - H1: em pelo menos 2 das 3 famílias, a fração visível em alguma condição supera a do trabalho-base
   (|0...0>, base Z) em pelo menos 20 p.p., com McNemar significativo (Holm, 5%).
 - H2: só portas de fase (Z, T, RZ). Reversíveis: |+>^n revela mais que |0...0> (em alguma das duas bases).
   Oráculos e emaranhamento: |+>^n não revela mais; rejeitada se revelar mais com diferença significativa.
-- H3: verificação analítica nos reversíveis (nenhuma detecção de fase fora de "superposição + base X").
-- H4: posição + papel >= 10% da importância SHAP média e ao menos um com efeito significativo
+- Verificação de consistência (seção 8.4): nos reversíveis, nenhuma detecção de fase fora de
+  "superposição + base X".
+- H3: posição + papel >= 10% da importância SHAP média e ao menos um com efeito significativo
   na regressão logística (GEE binomial agrupada por circuito).
-- H5a: mais de 50% das variantes visíveis com k95 <= 10.
-- H5b: mediana de k95 de RZ(pi/16) maior que a das outras portas, ou maioria invisível.
-- H5c: fração visível com ruído menor que no ideal (McNemar), e perda concentrada onde o impacto
+- H4a: mais de 50% das variantes visíveis com k95 <= 10.
+- H4b: mediana de k95 de RZ(pi/16) maior que a das outras portas, ou maioria invisível.
+- H4c: fração visível com ruído menor que no ideal (McNemar), e perda concentrada onde o impacto
   ideal fica abaixo do piso com ruído.
 """
 from __future__ import annotations
 
-import re
 import warnings
 
-import matplotlib
-
-matplotlib.use("Agg")
-import matplotlib.pyplot as plt  # noqa: E402
 import numpy as np  # noqa: E402
 import pandas as pd  # noqa: E402
 import shap  # noqa: E402
@@ -78,7 +74,7 @@ def por_variante(ideal: pd.DataFrame, cond: pd.DataFrame) -> pd.DataFrame:
     v["mais_any"] = z.revela_mais.astype(bool) | x.revela_mais.astype(bool)
     v["p_melhor"] = np.maximum.reduce([z.p_revela_base, x.p_revela_base, z.p_revela_base_x, x.p_revela_base_x])
     v["k95"] = v.p_melhor.map(k95)
-    # H3: detecções de fase fora da condição "entrada em superposição + medição em X"
+    # Verificação de consistência: detecções de fase fora da condição "entrada em superposição + medição em X"
     v["fora_sup_x"] = (
         z.revela_zeros.astype(bool) | x.revela_zeros.astype(bool) | z.revela_mais.astype(bool)
         | (z.p_revela_base > 0) | (x.p_revela_base > 0) | (z.p_revela_base_x > 0)
@@ -108,7 +104,7 @@ def h2(v: pd.DataFrame) -> pd.DataFrame:
     return t
 
 
-def h3(v: pd.DataFrame) -> dict:
+def verificacao(v: pd.DataFrame) -> dict:
     r = v[(v.familia == "reversivel") & v.porta.isin(FASE)]
     return {
         "variantes": len(r),
@@ -118,7 +114,7 @@ def h3(v: pd.DataFrame) -> dict:
     }
 
 
-def h4(cond: pd.DataFrame) -> tuple[dict, pd.DataFrame]:
+def h3(cond: pd.DataFrame) -> tuple[dict, pd.DataFrame]:
     fatores = ["porta", "posicao", "papel", "entrada", "base", "familia"]
 
     def importancia(dados: pd.DataFrame, cols: list[str]) -> pd.Series:
@@ -168,18 +164,8 @@ def h4(cond: pd.DataFrame) -> tuple[dict, pd.DataFrame]:
 REFERENCIA = {"porta": "x", "posicao": "meio", "papel": "ativo", "entrada": "zeros", "base": "z", "familia": "reversivel"}
 FORMULA = "visivel ~ " + " + ".join(f"C({f}, Treatment('{n}'))" for f, n in REFERENCIA.items())
 
-ROTULOS = {
-    "porta": ("Porta", {"h": "H", "t": "T", "x": "X", "z": "Z", "rz_pi16": "RZ(π/16)"}),
-    "posicao": ("Posição", {"inicio": "início", "meio": "meio", "fim": "fim"}),
-    "papel": ("Papel", {"ativo": "ativo", "ocioso": "ocioso"}),
-    "entrada": ("Entrada", {"zeros": "|0…0⟩", "mais": "|+⟩ⁿ", "base_z": "estados da base Z", "base_x": "estados da base X"}),
-    "base": ("Base", {"z": "Z", "x": "X"}),
-    "familia": ("Família", {"reversivel": "reversíveis", "oraculo": "oráculos", "emaranhamento": "emaranhamento"}),
-}
-
-
 def salvar_regressao(gee) -> None:
-    """Tabela de razões de chances (IC 95%) e gráfico de floresta da regressão logística."""
+    """Tabela de razões de chances (IC 95%) da regressão logística; o gráfico sai de figura_regressao.py."""
     ic = gee.conf_int()
     tab = pd.DataFrame({
         "coef": gee.params, "erro_padrao": gee.bse, "p": gee.pvalues,
@@ -187,36 +173,11 @@ def salvar_regressao(gee) -> None:
     })
     tab.to_csv(RES / "hipoteses_regressao.csv")
 
-    linhas = []
-    for termo, r in tab.drop(index="Intercept").iterrows():
-        if pd.isna(r.erro_padrao):
-            continue  # nível sem variação própria (ex.: estados da base Z se comportam como |0...0>)
-        m = re.match(r"C\((\w+).*\)\[T\.(.+)\]", termo)
-        nome, niveis = ROTULOS[m.group(1)]
-        linhas.append((nome, niveis.get(m.group(2), m.group(2)), r))
-    referencias = {ROTULOS[f][0]: ROTULOS[f][1][nivel] for f, nivel in REFERENCIA.items()}
 
-    fig, ax = plt.subplots(figsize=(6.8, 6.0))
-    y = np.arange(len(linhas))[::-1]
-    for yi, (nome, nivel, r) in zip(y, linhas):
-        cor = "#2a6fdb" if r.p < ALFA else "#9aa5b1"
-        ax.plot([r.OR_ic_inf, r.OR_ic_sup], [yi, yi], color=cor, lw=1.6)
-        ax.plot(r.OR, yi, "o", color=cor, ms=5)
-    ax.axvline(1, color="#555", lw=0.8, ls="--")
-    ax.set_xscale("log")
-    ax.set_yticks(y, [f"{nome}: {nivel}" for nome, nivel, _ in linhas], fontsize=8)
-    ax.set_xlabel("Razão de chances de ser visível (IC 95%, escala log)")
-    ref = "; ".join(f"{k}: {v}" for k, v in referencias.items())
-    ax.set_title(f"Referência — {ref}", fontsize=7, loc="left")
-    ax.spines[["top", "right"]].set_visible(False)
-    fig.tight_layout()
-    fig.savefig(RES / "fig_regressao_logistica.png", dpi=200)
-
-
-def h5ab(v: pd.DataFrame) -> tuple[dict, pd.DataFrame]:
+def h4ab(v: pd.DataFrame) -> tuple[dict, pd.DataFrame]:
     vis = v[v.alguma]
-    h5a = {"variantes_visiveis": len(vis), "frac_k95_ate_10": (vis.k95 <= 10).mean()}
-    h5a["atende"] = h5a["frac_k95_ate_10"] > 0.5
+    h4a = {"variantes_visiveis": len(vis), "frac_k95_ate_10": (vis.k95 <= 10).mean()}
+    h4a["atende"] = h4a["frac_k95_ate_10"] > 0.5
 
     linhas = []
     for fam in FAMILIAS + ["todas"]:
@@ -232,10 +193,10 @@ def h5ab(v: pd.DataFrame) -> tuple[dict, pd.DataFrame]:
             "p_mannwhitney": p,
             "atende": (np.median(rz.k95) > np.median(outras.k95)) or ((~rz.alguma).mean() > 0.5),
         })
-    return h5a, pd.DataFrame(linhas)
+    return h4a, pd.DataFrame(linhas)
 
 
-def h5c(ruido: pd.DataFrame) -> dict:
+def h4c(ruido: pd.DataFrame) -> dict:
     v = ruido.groupby(CHAVE)[["revela_ideal", "revela_ruido"]].any()
     t = teste_mcnemar(v.revela_ruido, v.revela_ideal)
     perdidas = ruido[ruido.revela_ideal & ~ruido.revela_ruido]
@@ -245,59 +206,42 @@ def h5c(ruido: pd.DataFrame) -> dict:
     return t
 
 
-def figura_shap(shap_tab: pd.DataFrame) -> None:
-    nomes = {"porta": "Porta", "posicao": "Posição", "papel": "Papel do qubit", "entrada": "Entrada",
-             "base": "Base de medição", "familia": "Família"}
-    t = shap_tab.rename(index=nomes).sort_values("todas_as_condicoes")
-    y = np.arange(len(t))
-    fig, ax = plt.subplots(figsize=(6.5, 3.6))
-    ax.barh(y + 0.2, 100 * t.so_trabalho_base, height=0.38, color="#9aa5b1", label="Só |0…0⟩, base Z (trabalho-base)")
-    ax.barh(y - 0.2, 100 * t.todas_as_condicoes, height=0.38, color="#2a6fdb", label="Todas as entradas e bases")
-    ax.set_yticks(y, t.index)
-    ax.set_xlabel("Importância SHAP média (% do total)")
-    ax.legend(frameon=False, fontsize=8, loc="lower right")
-    ax.spines[["top", "right"]].set_visible(False)
-    fig.tight_layout()
-    fig.savefig(RES / "fig_shap_importancia.png", dpi=200)
-
-
 def main() -> None:
     ideal = pd.read_csv(RES / "ideal.csv")
     ruido = pd.read_csv(RES / "ruido_1024.csv")
     cond = condicoes_ideal(ideal)
     v = por_variante(ideal, cond)
 
-    t1, t2, r3 = h1(v), h2(v), h3(v)
-    r4, shap_tab = h4(cond)
-    r5a, t5b = h5ab(v)
-    r5c = h5c(ruido)
+    t1, t2, rv = h1(v), h2(v), verificacao(v)
+    r3, shap_tab = h3(cond)
+    r4a, t4b = h4ab(v)
+    r4c = h4c(ruido)
 
     fmt = lambda t: t.round(4).to_string(index=False)  # noqa: E731
     print("H1: alguma condição (a) x trabalho-base (b), por família\n" + fmt(t1))
     print("  -> H1 atende em", int(t1.atende.sum()), "de 3 famílias:", "CONFIRMADA" if t1.atende.sum() >= 2 else "REJEITADA", "\n")
     print("H2: portas de fase, |+>^n (a) x |0...0> (b), alguma base\n" + fmt(t2), "\n")
-    print("H3:", {k: round(v_, 4) if isinstance(v_, float) else v_ for k, v_ in r3.items()}, "\n")
-    print("H4:", {k: round(v_, 4) if isinstance(v_, float) else v_ for k, v_ in r4.items()})
+    print("Verificação:", {k: round(v_, 4) if isinstance(v_, float) else v_ for k, v_ in rv.items()}, "\n")
+    print("H3:", {k: round(v_, 4) if isinstance(v_, float) else v_ for k, v_ in r3.items()})
     print("  importância SHAP (fração do total)\n" + shap_tab.round(3).to_string(), "\n")
-    print("H5a:", {k: round(v_, 4) if isinstance(v_, float) else v_ for k, v_ in r5a.items()})
-    print("H5b\n" + fmt(t5b))
-    print("H5c: ruído (a) x ideal (b), 4 condições\n", {k: round(v_, 4) if isinstance(v_, float) else v_ for k, v_ in r5c.items()})
+    print("H4a:", {k: round(v_, 4) if isinstance(v_, float) else v_ for k, v_ in r4a.items()})
+    print("H4b\n" + fmt(t4b))
+    print("H4c: ruído (a) x ideal (b), 4 condições\n", {k: round(v_, 4) if isinstance(v_, float) else v_ for k, v_ in r4c.items()})
 
     resumo = pd.DataFrame([
         {"hipotese": "H1", "atende": bool(t1.atende.sum() >= 2), "detalhe": f"{int(t1.atende.sum())}/3 famílias"},
         *[{"hipotese": f"H2 ({r.familia})", "atende": bool(r.atende), "detalhe": f"|+>={r.frac_a:.2f} |0>={r.frac_b:.2f} p_holm={r.p_holm:.3g}"} for r in t2.itertuples()],
-        {"hipotese": "H3", "atende": bool(r3["atende"]), "detalhe": f"{r3['deteccoes_fora_de_sup_x']} detecções fora de sup+X"},
-        {"hipotese": "H4", "atende": bool(r4["atende"]), "detalhe": f"posição+papel={r4['share_pos_papel_todas']:.1%}"},
-        {"hipotese": "H5a", "atende": bool(r5a["atende"]), "detalhe": f"{r5a['frac_k95_ate_10']:.1%} com k95<=10"},
-        {"hipotese": "H5b", "atende": bool(t5b[t5b.familia == 'todas'].atende.iloc[0]), "detalhe": "ver hipoteses_h5b"},
-        {"hipotese": "H5c", "atende": bool(r5c["atende"]), "detalhe": f"ideal={r5c['frac_b']:.2f} ruído={r5c['frac_a']:.2f} p={r5c['p']:.3g}"},
+        {"hipotese": "Verificação", "atende": bool(rv["atende"]), "detalhe": f"{rv['deteccoes_fora_de_sup_x']} detecções fora de sup+X"},
+        {"hipotese": "H3", "atende": bool(r3["atende"]), "detalhe": f"posição+papel={r3['share_pos_papel_todas']:.1%}"},
+        {"hipotese": "H4a", "atende": bool(r4a["atende"]), "detalhe": f"{r4a['frac_k95_ate_10']:.1%} com k95<=10"},
+        {"hipotese": "H4b", "atende": bool(t4b[t4b.familia == 'todas'].atende.iloc[0]), "detalhe": "ver hipoteses_h4b"},
+        {"hipotese": "H4c", "atende": bool(r4c["atende"]), "detalhe": f"ideal={r4c['frac_b']:.2f} ruído={r4c['frac_a']:.2f} p={r4c['p']:.3g}"},
     ])
     resumo.to_csv(RES / "hipoteses_resumo.csv", index=False)
     t1.to_csv(RES / "hipoteses_h1.csv", index=False)
     t2.to_csv(RES / "hipoteses_h2.csv", index=False)
-    t5b.to_csv(RES / "hipoteses_h5b.csv", index=False)
+    t4b.to_csv(RES / "hipoteses_h4b.csv", index=False)
     shap_tab.to_csv(RES / "hipoteses_shap.csv")
-    figura_shap(shap_tab)
     print("\nResumo\n" + resumo.to_string(index=False))
 
 

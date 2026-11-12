@@ -3,8 +3,8 @@ H1,True,3/3 famílias
 H2 (reversivel),True,|+>=1.00 |0>=0.00 p_holm=3.88e-26
 H2 (oraculo),True,|+>=0.38 |0>=0.53 p_holm=0.401
 H2 (emaranhamento),True,|+>=0.50 |0>=0.62 p_holm=0.401
-H3,True,0 detecções fora de sup+X
-H4,False,posição+papel=3.6%
-H5a,True,96.4% com k95<=10
-H5b,True,ver hipoteses_h5b
-H5c,True,ideal=0.94 ruído=0.82 p=2.61e-12
+Verificação,True,0 detecções fora de sup+X
+H3,False,posição+papel=3.6%
+H4a,True,96.4% com k95<=10
+H4b,True,ver hipoteses_h4b
+H4c,True,ideal=0.94 ruído=0.82 p=2.61e-12

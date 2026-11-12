@@ -74,7 +74,7 @@ def test_somador_completo_tabela_verdade():
 
 
 def test_trojan_de_fase_em_circuito_reversivel():
-    # H3: num circuito reversível (só X, CNOT, Toffoli), uma porta de fase
+    # Verificação de consistência: num circuito reversível (só X, CNOT, Toffoli), uma porta de fase
     # - com entrada da base computacional vira fase GLOBAL: invisível em qualquer base de medição;
     # - com medição na base Z continua invisível mesmo com entrada em superposição;
     # - só aparece com entrada em superposição E medição na base X.

@@ -54,10 +54,11 @@ python experiments\rodar_ideal.py   # gera results/ideal.csv
 python experiments\consolidar.py    # gera results/resumo_*.csv
 python experiments\rodar_ruido.py       # gera results/piso_ruido_1024.csv e results/ruido_1024.csv (FakeTorino, ~3 min)
 python experiments\consolidar_ruido.py  # gera results/resumo_*ruido*_1024.csv
-python experiments\figuras_ruido.py     # gera results/fig_ruido_*_1024.png
-# os três aceitam --shots 4096 (análise de sensibilidade; arquivos com sufixo _4096)
-python experiments\replicas_ruido.py    # 10 réplicas com sementes diferentes (~20 min; aceita --shots 4096)
-python experiments\testes_hipoteses.py  # testes das hipóteses H1 a H5c (McNemar, GEE e SHAP)
+python experiments\replicas_ruido.py    # 10 réplicas com sementes diferentes (~20 min)
+python experiments\figuras_ruido.py     # gera results/fig_ruido_*_1024 (SVG e PDF)
+# os quatro scripts de ruído aceitam --shots 4096 (análise de sensibilidade; arquivos com sufixo _4096)
+python experiments\testes_hipoteses.py  # testes das hipóteses H1 a H4c (McNemar, GEE e SHAP)
+python experiments\figura_regressao.py  # gera results/fig_regressao_* (SVG e PDF)
 ```
 
 `notebooks/00_conceitos.py` tem exemplos dos conceitos básicos (abre como notebook no VS Code).

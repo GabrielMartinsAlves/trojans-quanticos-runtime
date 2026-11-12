@@ -4,18 +4,19 @@ Não reajusta o modelo: apenas lê a tabela de razões de chances (OR, IC 95%) s
 testes_hipoteses.py e desenha o gráfico, com a mesma estilização de figuras_ruido.py.
 
 A porta H tem razão de chances várias ordens de grandeza acima dos demais fatores e distorceria a
-escala. Por isso há dois arquivos:
+escala. Por isso há três figuras (cada uma em SVG e PDF):
 
-- results/fig_regressao_porta.svg: só as portas, com eixo quebrado (H num painel à direita);
-- results/fig_regressao_outros.svg: posição, papel, entrada, base e família, um quadro por fator,
-  empilhados e com o mesmo eixo x.
+- results/fig_regressao_porta: só as portas, com eixo quebrado (H num painel à direita);
+- results/fig_regressao_outros: posição, papel, entrada, base e família, um quadro por fator,
+  empilhados e com o mesmo eixo x;
+- results/fig_regressao_unico: todos os fatores num único quadro, sem separar por fator
+  (porta com eixo quebrado).
 
 Uso: python experiments/figura_regressao.py
 """
 from __future__ import annotations
 
 import re
-from pathlib import Path
 
 import matplotlib
 
@@ -26,8 +27,8 @@ import pandas as pd  # noqa: E402
 from matplotlib.lines import Line2D  # noqa: E402
 from matplotlib.ticker import NullFormatter, NullLocator  # noqa: E402
 from matplotlib.transforms import blended_transform_factory  # noqa: E402
+from comum import RESULTADOS, salvar_figura  # noqa: E402
 
-RAIZ = Path(__file__).resolve().parents[1]
 ALFA = 0.05
 
 plt.rcParams.update({
@@ -107,12 +108,15 @@ def limites(valores: list[float], folga: float = 1.25) -> tuple[float, float]:
     return min(v) / folga, max(v) * folga
 
 
-def fig_quadros(linhas: list[tuple[str, str, pd.Series]], fatores: list[str], destino: Path) -> None:
+def fig_quadros(linhas: list[tuple[str, str, pd.Series]], fatores: list[str], arquivo: str, prefixar: bool = False) -> None:
     """Um quadro por fator, empilhados e com o mesmo eixo x; o nome do fator e a categoria de
     referência ficam num cabeçalho logo acima de cada quadro.
 
     Se algum termo estiver em PAINEL_DIREITO, o eixo é quebrado: esse termo vai para um painel à
     direita, em escala própria, e o resto fica no painel principal.
+
+    prefixar=True: os rótulos dos níveis levam o nome do fator ("Porta: H"), útil quando vários
+    fatores aparecem na mesma figura.
     """
     nomes = {f: ROTULOS[f][0] for f in fatores}
     grupos = {nomes[f]: [(n, r) for nome, n, r in linhas if nome == nomes[f]] for f in fatores}
@@ -146,7 +150,7 @@ def fig_quadros(linhas: list[tuple[str, str, pd.Series]], fatores: list[str], de
     fig = plt.figure(figsize=(largura, altura), facecolor=SUPERFICIE)
     gs = fig.add_gridspec(len(grupos), 2 if quebrar else 1, height_ratios=alturas,
                           width_ratios=[3, 1] if quebrar else None, hspace=entre / medio, wspace=0.12,
-                          left=0.22, right=0.975, bottom=base_in / altura, top=1 - topo_in / altura)
+                          left=0.30 if prefixar else 0.22, right=0.975, bottom=base_in / altura, top=1 - topo_in / altura)
     eixos, direitos = [], {}
     for k, nome in enumerate(grupos):
         ax = fig.add_subplot(gs[k, 0], sharex=eixos[0] if eixos else None)
@@ -166,7 +170,7 @@ def fig_quadros(linhas: list[tuple[str, str, pd.Series]], fatores: list[str], de
             a.set_ylim(-0.6, topo_y[nome])
         ax.set_xlim(*lim1)
         ax.set_yticks(range(n))
-        ax.set_yticklabels([nivel for nivel, _ in g][::-1], fontsize=7, color=TINTA_2)
+        ax.set_yticklabels([(f"{nome}: {nivel}" if prefixar else nivel) for nivel, _ in g][::-1], fontsize=7, color=TINTA_2)
         ax.axvline(1, color=TINTA_3, linestyle=(0, (3, 2)), linewidth=1, zorder=1.5)
         for yi, (nivel, r) in zip(range(n)[::-1], g):
             cor = SERIE_1 if r.p < ALFA else TINTA_3
@@ -224,16 +228,100 @@ def fig_quadros(linhas: list[tuple[str, str, pd.Series]], fatores: list[str], de
     x1 = (direitos[next(iter(direitos))] if direitos else ultimo).get_position().x1
     rotulo = "Razão de chances de ser visível (IC 95%, escala log" + ("; eixo quebrado)" if quebrar else ")")
     fig.text((ultimo.get_position().x0 + x1) / 2, 0.0, rotulo, ha="center", va="bottom", fontsize=7, color=TINTA_2)
-    fig.savefig(destino, dpi=300, facecolor=SUPERFICIE, bbox_inches="tight", pad_inches=0.03)
+    salvar_figura(fig, arquivo, dpi=300, facecolor=SUPERFICIE, bbox_inches="tight", pad_inches=0.03)
+    plt.close(fig)
+
+
+def fig_unico(linhas: list[tuple[str, str, pd.Series]], arquivo: str) -> None:
+    """Todos os fatores num único quadro (sem separar por fator), com o rótulo "Fator: nível" em cada
+    linha e a categoria de referência numa nota no topo. A porta H vai para um painel à direita,
+    em escala própria (eixo quebrado)."""
+    referencias = [f"{ROTULOS[f][0]}: {ROTULOS[f][1][REFERENCIA[f]]}" for f in ROTULOS]
+    ref = "Referência: " + "; ".join(referencias[:3]) + "\n" + "; ".join(referencias[3:])
+
+    esq = [r for n, v, r in linhas if (n, v) not in PAINEL_DIREITO]
+    dir_ = [r for n, v, r in linhas if (n, v) in PAINEL_DIREITO]
+    valores = [x for r in esq for x in (r.OR_ic_inf, r.OR_ic_sup)] + [1.0]
+    lim1 = (2.0 ** np.floor(np.log2(min(valores))), 2.0 ** np.ceil(np.log2(max(valores))))
+    lim2 = limites([x for r in dir_ for x in (r.OR_ic_inf, r.OR_ic_sup, r.OR)], folga=1.8)
+
+    ha_sig = any(r.p < ALFA for _, _, r in linhas)
+    ha_nsig = any(r.p >= ALFA for _, _, r in linhas)
+    linhas_leg = 2 if (int(ha_sig) + int(ha_nsig) + 1) == 3 else 1
+    topo_in = 0.10 + 0.15 * linhas_leg + 0.14 * 2 + 0.08
+    base_in, largura, LINHA = 0.38, 5.2, 0.2
+    altura = topo_in + LINHA * len(linhas) + base_in
+
+    fig = plt.figure(figsize=(largura, altura), facecolor=SUPERFICIE)
+    ax1, ax2 = fig.subplots(1, 2, sharey=True, gridspec_kw={"width_ratios": [3, 1], "wspace": 0.12})
+    fig.subplots_adjust(left=0.30, right=0.975, bottom=base_in / altura, top=1 - topo_in / altura)
+    for ax in (ax1, ax2):
+        estilo(ax)
+        ax.set_xscale("log")
+        ax.xaxis.set_minor_locator(NullLocator())
+        ax.xaxis.set_minor_formatter(NullFormatter())
+
+    y = np.arange(len(linhas))[::-1]
+    for yi, (nome, nivel, r) in zip(y, linhas):
+        cor = SERIE_1 if r.p < ALFA else TINTA_3
+        for ax in (ax1, ax2):
+            ax.plot([r.OR_ic_inf, r.OR_ic_sup], [yi, yi], color=cor, linewidth=1.2, zorder=2)
+            ax.scatter(r.OR, yi, s=20, color=cor, edgecolor=SUPERFICIE, linewidth=0.5, zorder=3)
+        if (nome, nivel) in PAINEL_DIREITO:
+            ax2.text(r.OR, yi + 0.4, f"{r.OR:.0f}", ha="center", va="bottom", fontsize=6.5, color=TINTA_2)
+
+    ax1.axvline(1, color=TINTA_3, linestyle=(0, (3, 2)), linewidth=1, zorder=1.5)
+    ax1.set_xlim(*lim1)
+    ticks1 = [2.0 ** k for k in range(int(np.log2(lim1[0])), int(np.log2(lim1[1])) + 1)]
+    ax1.set_xticks(ticks1)
+    ax1.set_xticklabels([f"{t:g}".replace(".", ",") for t in ticks1], fontsize=7)
+    ax2.set_xlim(*lim2)
+    ticks2 = marcas_eixo(*lim2, so_potencias=True)
+    ax2.set_xticks(ticks2)
+    ax2.set_xticklabels([f"{t:g}".replace(".", ",") for t in ticks2], fontsize=7)
+
+    ax1.set_yticks(y)
+    ax1.set_yticklabels([f"{nome}: {nivel}" for nome, nivel, _ in linhas], fontsize=7, color=TINTA_2)
+    ax1.set_ylim(-0.6, len(linhas) + 0.2)
+    ax1.spines["right"].set_visible(False)
+    ax2.spines["left"].set_visible(False)
+    ax2.tick_params(left=False)
+
+    # Marcas da quebra: 45° de verdade (tamanho fixo em polegadas).
+    kw = dict(color=TINTA, clip_on=False, linewidth=1.0)
+    for a_, x0 in ((ax1, 1.0), (ax2, 0.0)):
+        pos = a_.get_position()
+        dx, dy = 0.06 / (pos.width * largura), 0.06 / (pos.height * altura)
+        for y0 in (0.0, 1.0):
+            a_.plot((x0 - dx, x0 + dx), (y0 - dy, y0 + dy), transform=a_.transAxes, **kw)
+
+    alcas = []
+    if ha_sig:
+        alcas.append(Line2D([0], [0], color=SERIE_1, marker="o", markersize=4, linewidth=1.2,
+                            label=f"Significativo (valor-p < {ALFA:.2f})".replace(".", ",")))
+    if ha_nsig:
+        alcas.append(Line2D([0], [0], color=TINTA_3, marker="o", markersize=4, linewidth=1.2,
+                            label=f"Não significativo (valor-p ≥ {ALFA:.2f})".replace(".", ",")))
+    alcas.append(Line2D([0], [0], color=TINTA_3, linestyle=(0, (3, 2)), linewidth=1, label="OR = 1 (sem efeito)"))
+    fig.legend(handles=alcas, loc="upper center", bbox_to_anchor=(0.5, 1.0), ncol=2, frameon=False,
+               fontsize=6.5, labelcolor=TINTA, columnspacing=1.0, handletextpad=0.4, handlelength=1.6)
+    fig.text(0.5, 1 - (0.10 + 0.15 * linhas_leg + 0.02) / altura, ref, ha="center", va="top",
+             fontsize=6.5, color=TINTA_2, linespacing=1.4)
+    fig.text((ax1.get_position().x0 + ax2.get_position().x1) / 2, 0.0,
+             "Razão de chances de ser visível (IC 95%, escala log; eixo quebrado)",
+             ha="center", va="bottom", fontsize=7, color=TINTA_2)
+    salvar_figura(fig, arquivo, dpi=300, facecolor=SUPERFICIE, bbox_inches="tight", pad_inches=0.03)
     plt.close(fig)
 
 
 def main() -> None:
-    linhas = ler_tabela(RAIZ / "results" / "hipoteses_regressao.csv")
+    linhas = ler_tabela(RESULTADOS / "hipoteses_regressao.csv")
     # A porta H (OR na casa das centenas) fica num gráfico próprio, com eixo quebrado;
     # os demais fatores ficam juntos, em quadros empilhados com o mesmo eixo x.
-    fig_quadros(linhas, ["porta"], RAIZ / "results" / "fig_regressao_porta.svg")
-    fig_quadros(linhas, ["posicao", "papel", "entrada", "base", "familia"], RAIZ / "results" / "fig_regressao_outros.svg")
+    fig_quadros(linhas, ["porta"], "fig_regressao_porta")
+    fig_quadros(linhas, ["posicao", "papel", "entrada", "base", "familia"], "fig_regressao_outros")
+    # Versão em um único quadro, sem separar por fator (porta H com eixo quebrado).
+    fig_unico(linhas, "fig_regressao_unico")
 
 
 if __name__ == "__main__":

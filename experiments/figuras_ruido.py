@@ -1,10 +1,10 @@
 """Figuras do ambiente com ruído, a partir de results/ruido_<shots>.csv e results/piso_ruido_<shots>.csv.
 
-- results/fig_ruido_revela_<shots>.png: fração de variantes reveladas em alguma das 4 condições
+- results/fig_ruido_revela_<shots> (SVG e PDF): fração de variantes reveladas em alguma das 4 condições
   (entrada |0...0> ou |+>^n, base Z ou X), no simulador ideal e com ruído, por família e porta,
   com as contagens (k/n) e o nível de falso alarme com ruído, 1 - (1 - f)^4, com f medido nas
   réplicas (results/falso_alarme_replicas_<shots>.csv) ou, se não houver réplicas, f = 5%;
-- results/fig_ruido_piso_<shots>.png: quanto o ruído afasta o golden da saída ideal, comparado com o
+- results/fig_ruido_piso_<shots> (SVG e PDF): quanto o ruído afasta o golden da saída ideal, comparado com o
   piso de ruído (golden x golden), em função do número de CZ depois da transpilação.
 
 Uso: python experiments/figuras_ruido.py [--shots 1024]
@@ -12,7 +12,6 @@ Uso: python experiments/figuras_ruido.py [--shots 1024]
 from __future__ import annotations
 
 import argparse
-from pathlib import Path
 
 import matplotlib
 import matplotlib.ticker
@@ -22,9 +21,8 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt  # noqa: E402
 import numpy as np  # noqa: E402
 import pandas as pd  # noqa: E402
+from comum import CHAVE, RESULTADOS, salvar_figura  # noqa: E402
 
-RAIZ = Path(__file__).resolve().parents[1]
-CHAVE = ["familia", "circuito", "porta", "posicao", "papel"]
 
 plt.rcParams.update({
     "text.usetex": False,
@@ -37,7 +35,7 @@ plt.rcParams.update({
     "ytick.labelsize": 10,
 })
 
-# Paleta (validada para daltonismo) e tinta do gráfico.
+# Paleta e tinta do gráfico.
 SERIE_1 = "#0d56af"  # ideal / distorção
 SERIE_2 = "#cc7400"  # com ruído / piso
 SUPERFICIE = "#ffffff"
@@ -59,7 +57,7 @@ def nivel_falso_alarme(shots: int) -> tuple[float, str]:
     Usa a taxa por condição medida nas réplicas (results/falso_alarme_replicas_<shots>.csv,
     gerado por replicas_ruido.py) quando existe; senão, o valor teórico.
     """
-    arquivo = RAIZ / "results" / f"falso_alarme_replicas_{shots}.csv"
+    arquivo = RESULTADOS / f"falso_alarme_replicas_{shots}.csv"
     if arquivo.exists():
         fa = pd.read_csv(arquivo)
         f = float(fa[fa.entrada == "todas"].taxa.iloc[0])
@@ -127,7 +125,7 @@ def fig_revela(tab: pd.DataFrame, shots: int) -> None:
     fig.legend(alcas, rotulos, loc="upper left", bbox_to_anchor=(0.07, 1.0), ncol=3, frameon=False, fontsize=8,
                labelcolor=TINTA)
     fig.tight_layout(rect=(0, 0.05, 1, 0.9))
-    fig.savefig(RAIZ / "results" / f"fig_ruido_revela_{shots}.svg", dpi=300, facecolor=SUPERFICIE)
+    salvar_figura(fig, f"fig_ruido_revela_{shots}", dpi=300, facecolor=SUPERFICIE)
     plt.close(fig)
 
 
@@ -192,8 +190,9 @@ def fig_piso(pisos: pd.DataFrame, shots: int) -> None:
         top=0.78,
     )
 
-    fig.savefig(
-        RAIZ / "results" / f"fig_ruido_piso_{shots}.svg",
+    salvar_figura(
+        fig,
+        f"fig_ruido_piso_{shots}",
         dpi=300,
         facecolor=SUPERFICIE,
         bbox_inches="tight",
@@ -282,8 +281,9 @@ def fig_piso_dispersao(pisos: pd.DataFrame, shots: int) -> None:
         top=0.78,
     )
 
-    fig.savefig(
-        RAIZ / "results" / f"fig_ruido_dispersao_{shots}.svg",
+    salvar_figura(
+        fig,
+        f"fig_ruido_dispersao_{shots}",
         dpi=300,
         facecolor=SUPERFICIE,
         bbox_inches="tight",
@@ -293,8 +293,8 @@ def fig_piso_dispersao(pisos: pd.DataFrame, shots: int) -> None:
 
 
 def main(shots: int = 1024) -> None:
-    tab = pd.read_csv(RAIZ / "results" / f"ruido_{shots}.csv")
-    pisos = pd.read_csv(RAIZ / "results" / f"piso_ruido_{shots}.csv")
+    tab = pd.read_csv(RESULTADOS / f"ruido_{shots}.csv")
+    pisos = pd.read_csv(RESULTADOS / f"piso_ruido_{shots}.csv")
     fig_revela(tab, shots)
     fig_piso(pisos, shots)
     fig_piso_dispersao(pisos, shots)
