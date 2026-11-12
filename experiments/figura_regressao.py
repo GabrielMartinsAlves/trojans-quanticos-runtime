@@ -43,7 +43,7 @@ plt.rcParams.update({
 
 # Paleta e tinta (mesmas de figuras_ruido.py).
 SERIE_1 = "#0d56af"   # efeito significativo
-SUPERFICIE = "#fcfcfb"
+SUPERFICIE = "#ffffff"
 TINTA = "#000000"
 TINTA_2 = "#000000"
 TINTA_3 = "#898781"   # efeito não significativo / linha de referência

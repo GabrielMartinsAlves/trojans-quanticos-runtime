@@ -40,7 +40,7 @@ plt.rcParams.update({
 # Paleta (validada para daltonismo) e tinta do gráfico.
 SERIE_1 = "#0d56af"  # ideal / distorção
 SERIE_2 = "#cc7400"  # com ruído / piso
-SUPERFICIE = "#fcfcfb"
+SUPERFICIE = "#ffffff"
 TINTA = "#000000"
 TINTA_2 = "#000000"
 GRADE = "#e1e0d9"
